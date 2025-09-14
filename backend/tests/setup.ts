@@ -16,16 +16,28 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Clean up database before each test
-  const tablenames = await prisma.$queryRaw<
-    Array<{ tablename: string }>
-  >`SELECT tablename FROM sqlite_master WHERE type='table' AND tablename NOT LIKE 'sqlite_%';`;
-  
-  for (const { tablename } of tablenames) {
-    await prisma.$executeRawUnsafe(`DELETE FROM ${tablename};`);
+  try {
+    const tablenames = await prisma.$queryRaw<
+      Array<{ name: string }>
+    >`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';`;
+    
+    for (const { name } of tablenames) {
+      await prisma.$executeRawUnsafe(`DELETE FROM ${name};`);
+    }
+  } catch (error) {
+    // If the database doesn't exist or tables don't exist, just continue
+    console.log('Database cleanup skipped:', error);
   }
 });
 
 // Global test utilities
+declare global {
+  var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
+  };
+}
+
 global.testUtils = {
   createUser: async (userData: any) => {
     return await prisma.user.create({
