@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { ProductService } from '../lib/product/ProductService';
 import { ProductFilters, ProductQueryOptions } from '../models/Product';
+import { authenticateToken } from '../middleware/auth';
+import { requireAdmin } from '../middleware/admin';
 
 const router = Router();
 const productService = new ProductService();
@@ -65,6 +67,8 @@ router.get('/', [
 
 // Create a new product
 router.post('/', [
+  authenticateToken,
+  requireAdmin,
   body('name').notEmpty().withMessage('Product name is required'),
   body('description').optional().isString(),
   body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
@@ -149,6 +153,8 @@ router.get('/:id', [
 
 // Update a product
 router.put('/:id', [
+  authenticateToken,
+  requireAdmin,
   param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
   body('name').optional().notEmpty().withMessage('Product name cannot be empty'),
   body('description').optional().isString(),
@@ -207,6 +213,8 @@ router.put('/:id', [
 
 // Delete a product
 router.delete('/:id', [
+  authenticateToken,
+  requireAdmin,
   param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {

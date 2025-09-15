@@ -1,12 +1,12 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('POST /auth/login', () => {
   let userId: string;
   let userEmail: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create a test user first
     const userData = {
       email: 'login-test@example.com',

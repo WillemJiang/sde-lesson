@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('DELETE /cart/items/{id}', () => {
@@ -9,7 +9,7 @@ describe('DELETE /cart/items/{id}', () => {
   let cartItemIdToDelete: string;
   let cartItemIdToKeep: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create regular user
     const userData = {
       email: 'cart-delete-test@example.com',
@@ -67,7 +67,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
 
     // Add items to cart for testing
     const firstItemData = {
@@ -80,7 +80,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(firstItemData);
 
-    cartItemIdToDelete = firstItemResponse.body.id;
+    cartItemIdToDelete = firstItemResponse.body.data.id;
 
     const secondItemData = {
       product_id: productId,
@@ -92,7 +92,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(secondItemData);
 
-    cartItemIdToKeep = secondItemResponse.body.id;
+    cartItemIdToKeep = secondItemResponse.body.data.id;
   });
 
   it('should delete cart item successfully', async () => {
@@ -102,7 +102,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(cartBeforeDelete.body.items.some((item: any) => item.id === cartItemIdToDelete)).toBe(true);
+    expect(cartBeforeDelete.body.data.items.some((item: any) => item.id === cartItemIdToDelete)).toBe(true);
 
     // Delete the cart item
     await request(app)
@@ -116,7 +116,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(cartAfterDelete.body.items.some((item: any) => item.id === cartItemIdToDelete)).toBe(false);
+    expect(cartAfterDelete.body.data.items.some((item: any) => item.id === cartItemIdToDelete)).toBe(false);
   });
 
   it('should return 401 when no authentication token provided', async () => {
@@ -162,7 +162,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(newItemData);
 
-    const tempCartItemId = createResponse.body.id;
+    const tempCartItemId = createResponse.body.data.id;
 
     // Delete the cart item
     const response = await request(app)
@@ -189,7 +189,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body.items.some((item: any) => item.id === cartItemIdToKeep)).toBe(true);
+    expect(response.body.data.items.some((item: any) => item.id === cartItemIdToKeep)).toBe(true);
   });
 
   it('should update cart totals correctly after item deletion', async () => {
@@ -213,7 +213,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(newItemData);
 
-    const tempCartItemId = createResponse.body.id;
+    const tempCartItemId = createResponse.body.data.id;
 
     // Get cart after adding item
     const cartAfterAdd = await request(app)
@@ -277,7 +277,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${newUserAuthToken}`)
       .send(singleItemData);
 
-    const singleCartItemId = singleItemResponse.body.id;
+    const singleCartItemId = singleItemResponse.body.data.id;
 
     // Verify cart has one item
     const cartBeforeDelete = await request(app)
@@ -285,7 +285,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${newUserAuthToken}`)
       .expect(200);
 
-    expect(cartBeforeDelete.body.items).toHaveLength(1);
+    expect(cartBeforeDelete.body.data.items).toHaveLength(1);
     expect(cartBeforeDelete.body.total_items).toBe(1);
 
     // Delete the last item
@@ -300,7 +300,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${newUserAuthToken}`)
       .expect(200);
 
-    expect(cartAfterDelete.body.items).toHaveLength(0);
+    expect(cartAfterDelete.body.data.items).toHaveLength(0);
     expect(cartAfterDelete.body.total_items).toBe(0);
     expect(cartAfterDelete.body.total_amount).toBe(0);
     expect(cartAfterDelete.body).toHaveProperty('id'); // Cart should still exist

@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('POST /payments/{id}/confirm', () => {
@@ -9,7 +9,7 @@ describe('POST /payments/{id}/confirm', () => {
   let paymentId: string;
   let otherUserAuthToken: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create regular user
     const userData = {
       email: 'payment-confirm-test@example.com',

@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('PUT /products/{id}', () => {
@@ -7,7 +7,7 @@ describe('PUT /products/{id}', () => {
   let userAuthToken: string;
   let productId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create admin user
     const adminData = {
       email: 'admin-update@example.com',
@@ -65,7 +65,7 @@ describe('PUT /products/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
   });
 
   it('should update product successfully with admin privileges', async () => {
@@ -85,15 +85,15 @@ describe('PUT /products/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id', productId);
-    expect(response.body).toHaveProperty('name', updateData.name);
-    expect(response.body).toHaveProperty('description', updateData.description);
-    expect(response.body).toHaveProperty('price', updateData.price);
-    expect(response.body).toHaveProperty('stock_quantity', updateData.stock_quantity);
-    expect(response.body).toHaveProperty('category', updateData.category);
-    expect(response.body).toHaveProperty('image_url', updateData.image_url);
-    expect(response.body).toHaveProperty('is_active', updateData.is_active);
-    expect(response.body).toHaveProperty('updated_at');
+    expect(response.body.data).toHaveProperty('id', productId);
+    expect(response.body.data).toHaveProperty('name', updateData.name);
+    expect(response.body.data).toHaveProperty('description', updateData.description);
+    expect(response.body.data).toHaveProperty('price', updateData.price);
+    expect(response.body.data).toHaveProperty('stock_quantity', updateData.stock_quantity);
+    expect(response.body.data).toHaveProperty('category', updateData.category);
+    expect(response.body.data).toHaveProperty('image_url', updateData.image_url);
+    expect(response.body.data).toHaveProperty('is_active', updateData.is_active);
+    expect(response.body.data).toHaveProperty('updated_at');
   });
 
   it('should return 403 when user is not admin', async () => {
@@ -120,7 +120,7 @@ describe('PUT /products/{id}', () => {
   });
 
   it('should return 404 for non-existent product ID', async () => {
-    const nonExistentId = '00000000-0000-0000-0000-000000000000';
+    const nonExistentId = 'cm1234567890abcdef12345678'; // CUID format that doesn't exist
     const updateData = {
       name: 'Update Non-existent'
     };
@@ -205,11 +205,11 @@ describe('PUT /products/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('name', updateData.name);
+    expect(response.body.data).toHaveProperty('name', updateData.name);
     // Other fields should retain their previous values
-    expect(response.body).toHaveProperty('description');
-    expect(response.body).toHaveProperty('price');
-    expect(response.body).toHaveProperty('stock_quantity');
+    expect(response.body.data).toHaveProperty('description');
+    expect(response.body.data).toHaveProperty('price');
+    expect(response.body.data).toHaveProperty('stock_quantity');
   });
 
   it('should handle empty update data', async () => {
@@ -226,7 +226,7 @@ describe('PUT /products/{id}', () => {
       .get(`/api/v1/products/${productId}`)
       .expect(200);
 
-    const currentProduct = getCurrentResponse.body;
+    const currentProduct = getCurrentResponse.body.data;
 
     // Update only the price
     const updateData = {
@@ -239,9 +239,9 @@ describe('PUT /products/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(updateResponse.body.price).toBe(updateData.price);
-    expect(updateResponse.body.name).toBe(currentProduct.name);
-    expect(updateResponse.body.description).toBe(currentProduct.description);
-    expect(updateResponse.body.stock_quantity).toBe(currentProduct.stock_quantity);
+    expect(updateResponse.body.data.price).toBe(updateData.price);
+    expect(updateResponse.body.data.name).toBe(currentProduct.name);
+    expect(updateResponse.body.data.description).toBe(currentProduct.description);
+    expect(updateResponse.body.data.stock_quantity).toBe(currentProduct.stock_quantity);
   });
 });

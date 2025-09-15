@@ -1,11 +1,11 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('GET /products', () => {
   let authToken: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create and login a test user
     const userData = {
       email: 'product-test@example.com',
@@ -33,13 +33,12 @@ describe('GET /products', () => {
       .get('/api/v1/products')
       .expect(200);
 
-    expect(response.body).toHaveProperty('products');
-    expect(response.body).toHaveProperty('pagination');
-    expect(Array.isArray(response.body.products)).toBe(true);
-    expect(response.body.pagination).toHaveProperty('page');
-    expect(response.body.pagination).toHaveProperty('limit');
-    expect(response.body.pagination).toHaveProperty('total');
-    expect(response.body.pagination).toHaveProperty('total_pages');
+    expect(response.body.data).toHaveProperty('products');
+    expect(response.body.data).toHaveProperty('page');
+    expect(response.body.data).toHaveProperty('limit');
+    expect(response.body.data).toHaveProperty('total');
+    expect(response.body.data).toHaveProperty('totalPages');
+    expect(Array.isArray(response.body.data.products)).toBe(true);
   });
 
   it('should return products with custom pagination', async () => {
@@ -47,8 +46,8 @@ describe('GET /products', () => {
       .get('/api/v1/products?page=2&limit=10')
       .expect(200);
 
-    expect(response.body.pagination.page).toBe(2);
-    expect(response.body.pagination.limit).toBe(10);
+    expect(response.body.data.page).toBe(2);
+    expect(response.body.data.limit).toBe(10);
   });
 
   it('should filter products by category', async () => {
@@ -56,9 +55,9 @@ describe('GET /products', () => {
       .get('/api/v1/products?category=electronics')
       .expect(200);
 
-    expect(response.body.products).toBeDefined();
+    expect(response.body.data.products).toBeDefined();
     // All returned products should be in the specified category
-    response.body.products.forEach((product: any) => {
+    response.body.data.products.forEach((product: any) => {
       expect(product.category).toBe('electronics');
     });
   });
@@ -68,7 +67,7 @@ describe('GET /products', () => {
       .get('/api/v1/products?search=laptop')
       .expect(200);
 
-    expect(response.body.products).toBeDefined();
+    expect(response.body.data.products).toBeDefined();
     // Search should match in name or description
   });
 
@@ -77,9 +76,9 @@ describe('GET /products', () => {
       .get('/api/v1/products?min_price=100&max_price=1000')
       .expect(200);
 
-    expect(response.body.products).toBeDefined();
+    expect(response.body.data.products).toBeDefined();
     // All returned products should be within price range
-    response.body.products.forEach((product: any) => {
+    response.body.data.products.forEach((product: any) => {
       expect(product.price).toBeGreaterThanOrEqual(100);
       expect(product.price).toBeLessThanOrEqual(1000);
     });
@@ -90,9 +89,9 @@ describe('GET /products', () => {
       .get('/api/v1/products?category=electronics&search=phone&min_price=200&max_price=800&page=1&limit=5')
       .expect(200);
 
-    expect(response.body).toHaveProperty('products');
-    expect(response.body).toHaveProperty('pagination');
-    expect(response.body.pagination.limit).toBe(5);
+    expect(response.body.data).toHaveProperty('products');
+    expect(response.body.data).toHaveProperty('limit');
+    expect(response.body.data.limit).toBe(5);
   });
 
   it('should return empty array when no products match filters', async () => {
@@ -100,7 +99,7 @@ describe('GET /products', () => {
       .get('/api/v1/products?category=nonexistent')
       .expect(200);
 
-    expect(response.body.products).toEqual([]);
+    expect(response.body.data.products).toEqual([]);
   });
 
   it('should validate pagination parameters', async () => {

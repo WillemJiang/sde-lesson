@@ -1,12 +1,12 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('POST /products', () => {
   let adminAuthToken: string;
   let userAuthToken: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create admin user
     const adminData = {
       email: 'admin@example.com',
@@ -67,16 +67,16 @@ describe('POST /products', () => {
       .send(productData)
       .expect(201);
 
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('name', productData.name);
-    expect(response.body).toHaveProperty('description', productData.description);
-    expect(response.body).toHaveProperty('price', productData.price);
-    expect(response.body).toHaveProperty('stock_quantity', productData.stock_quantity);
-    expect(response.body).toHaveProperty('sku', productData.sku);
-    expect(response.body).toHaveProperty('category', productData.category);
-    expect(response.body).toHaveProperty('is_active', true);
-    expect(response.body).toHaveProperty('created_at');
-    expect(response.body).toHaveProperty('updated_at');
+    expect(response.body.data).toHaveProperty('id');
+    expect(response.body.data).toHaveProperty('name', productData.name);
+    expect(response.body.data).toHaveProperty('description', productData.description);
+    expect(response.body.data).toHaveProperty('price', productData.price);
+    expect(response.body.data).toHaveProperty('stock_quantity', productData.stock_quantity);
+    expect(response.body.data).toHaveProperty('sku', productData.sku);
+    expect(response.body.data).toHaveProperty('category', productData.category);
+    expect(response.body.data).toHaveProperty('is_active', true);
+    expect(response.body.data).toHaveProperty('created_at');
+    expect(response.body.data).toHaveProperty('updated_at');
   });
 
   it('should return 403 when user is not admin', async () => {

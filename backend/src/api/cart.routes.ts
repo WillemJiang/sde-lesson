@@ -80,7 +80,7 @@ router.post('/items', [
 
 // Update cart item quantity
 router.put('/items/:id', [
-  param('id').isUUID().withMessage('Invalid cart item ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid cart item ID'),
   body('quantity').isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -125,7 +125,7 @@ router.put('/items/:id', [
 
 // Remove item from cart
 router.delete('/items/:id', [
-  param('id').isUUID().withMessage('Invalid cart item ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid cart item ID'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -146,12 +146,9 @@ router.delete('/items/:id', [
       res.status(400).json({ error: 'Cart item ID is required' });
       return;
     }
-    const cart = await cartService.removeFromCart(userId, id);
+    await cartService.removeFromCart(userId, id);
 
-    res.json({
-      message: 'Item removed from cart successfully',
-      data: cart,
-    });
+    res.status(204).send();
   } catch (error) {
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 : 400;

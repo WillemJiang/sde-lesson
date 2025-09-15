@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('POST /payments/create-payment-intent', () => {
@@ -8,7 +8,7 @@ describe('POST /payments/create-payment-intent', () => {
   let productId: string;
   let orderId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create regular user
     const userData = {
       email: `payment-intent-test-${Math.random().toString(36).substring(7)}@example.com`,

@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('POST /orders/{id}/cancel', () => {
@@ -10,7 +10,7 @@ describe('POST /orders/{id}/cancel', () => {
   let pendingOrderId: string;
   let processingOrderId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create regular user
     const userData = {
       email: 'order-cancel-test@example.com',

@@ -1,11 +1,11 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('POST /auth/verify', () => {
   let verificationToken: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create a test user first
     const userData = {
       email: 'verify-test@example.com',

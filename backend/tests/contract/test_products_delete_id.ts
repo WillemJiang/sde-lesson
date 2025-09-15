@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('DELETE /products/{id}', () => {
@@ -8,7 +8,7 @@ describe('DELETE /products/{id}', () => {
   let productIdToDelete: string;
   let productIdToKeep: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create admin user
     const adminData = {
       email: 'admin-delete@example.com',
@@ -117,7 +117,7 @@ describe('DELETE /products/{id}', () => {
   });
 
   it('should return 404 for non-existent product ID', async () => {
-    const nonExistentId = '00000000-0000-0000-0000-000000000000';
+    const nonExistentId = 'cm1234567890abcdef12345678'; // CUID format that doesn't exist
 
     await request(app)
       .delete(`/api/v1/products/${nonExistentId}`)

@@ -1,12 +1,12 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('GET /products/{id}', () => {
   let authToken: string;
   let productId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create and login a test user
     const userData = {
       email: 'product-get-test@example.com',
@@ -64,7 +64,7 @@ describe('GET /products/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
   });
 
   it('should return product by valid ID', async () => {
@@ -72,21 +72,21 @@ describe('GET /products/{id}', () => {
       .get(`/api/v1/products/${productId}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id', productId);
-    expect(response.body).toHaveProperty('name', 'Test Product for Get');
-    expect(response.body).toHaveProperty('description', 'A test product for GET endpoint');
-    expect(response.body).toHaveProperty('price', 149.99);
-    expect(response.body).toHaveProperty('stock_quantity', 75);
-    expect(response.body).toHaveProperty('sku', 'GET-TEST-001');
-    expect(response.body).toHaveProperty('category', 'electronics');
-    expect(response.body).toHaveProperty('image_url', 'https://example.com/test-product.jpg');
-    expect(response.body).toHaveProperty('is_active', true);
-    expect(response.body).toHaveProperty('created_at');
-    expect(response.body).toHaveProperty('updated_at');
+    expect(response.body.data).toHaveProperty('id', productId);
+    expect(response.body.data).toHaveProperty('name', 'Test Product for Get');
+    expect(response.body.data).toHaveProperty('description', 'A test product for GET endpoint');
+    expect(response.body.data).toHaveProperty('price', 149.99);
+    expect(response.body.data).toHaveProperty('stock_quantity', 75);
+    expect(response.body.data).toHaveProperty('sku', 'GET-TEST-001');
+    expect(response.body.data).toHaveProperty('category', 'electronics');
+    expect(response.body.data).toHaveProperty('image_url', 'https://example.com/test-product.jpg');
+    expect(response.body.data).toHaveProperty('is_active', true);
+    expect(response.body.data).toHaveProperty('created_at');
+    expect(response.body.data).toHaveProperty('updated_at');
   });
 
   it('should return 404 for non-existent product ID', async () => {
-    const nonExistentId = '00000000-0000-0000-0000-000000000000';
+    const nonExistentId = 'cm1234567890abcdef12345678'; // CUID format that doesn't exist
 
     await request(app)
       .get(`/api/v1/products/${nonExistentId}`)
@@ -107,12 +107,12 @@ describe('GET /products/{id}', () => {
       .expect(404); // This should 404 as it doesn't match the route pattern
   });
 
-  it('should return 404 for malformed ID', async () => {
+  it('should return 400 for malformed ID', async () => {
     const malformedId = '123e4567-e89b-12d3-a456-42661417400'; // Missing last character
 
     await request(app)
       .get(`/api/v1/products/${malformedId}`)
-      .expect(404);
+      .expect(400);
   });
 
   it('should return product details without requiring authentication', async () => {
@@ -121,13 +121,13 @@ describe('GET /products/{id}', () => {
       .get(`/api/v1/products/${productId}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id', productId);
-    expect(response.body).toHaveProperty('name');
+    expect(response.body.data).toHaveProperty('id', productId);
+    expect(response.body.data).toHaveProperty('name');
   });
 
   it('should handle special characters in ID correctly', async () => {
     // Test with edge case IDs
-    const edgeCaseId = '00000000-0000-0000-0000-000000000001';
+    const edgeCaseId = 'cm1234567890abcdef12345679'; // CUID format that doesn't exist
 
     await request(app)
       .get(`/api/v1/products/${edgeCaseId}`)
@@ -139,7 +139,7 @@ describe('GET /products/{id}', () => {
       .get(`/api/v1/products/${productId}`)
       .expect(200);
 
-    const product = response.body;
+    const product = response.body.data;
     
     // Verify all expected fields are present and have correct types
     expect(typeof product.id).toBe('string');

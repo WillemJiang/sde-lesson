@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('PUT /users/profile', () => {
@@ -7,7 +7,7 @@ describe('PUT /users/profile', () => {
   let adminAuthToken: string;
   let otherUserAuthToken: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create regular user
     const userData = {
       email: 'profile-update-test@example.com',

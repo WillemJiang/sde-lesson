@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('GET /orders/{id}', () => {
@@ -9,7 +9,7 @@ describe('GET /orders/{id}', () => {
   let orderId: string;
   let otherUserAuthToken: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create regular user
     const userData = {
       email: 'order-detail-test@example.com',

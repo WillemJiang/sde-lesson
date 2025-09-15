@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('PUT /cart/items/{id}', () => {
@@ -9,7 +9,7 @@ describe('PUT /cart/items/{id}', () => {
   let lowStockProductId: string;
   let cartItemId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create regular user
     const userData = {
       email: 'cart-update-test@example.com',
