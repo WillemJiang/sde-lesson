@@ -32,7 +32,7 @@ export interface OrderWithItems {
     status: string;
     payment_method: string;
     amount: number;
-  };
+  } | undefined;
 }
 
 export interface OrderFilters {

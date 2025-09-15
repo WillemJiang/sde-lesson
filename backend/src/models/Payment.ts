@@ -13,7 +13,7 @@ export interface Payment {
   order_id: string;
   stripe_payment_intent_id: string;
   amount: number;
-  status: PaymentStatus;
+  status: string;
   payment_method: string;
   created_at: Date;
   updated_at: Date;
@@ -27,7 +27,7 @@ export interface CreatePaymentInput {
 }
 
 export interface UpdatePaymentInput {
-  status?: PaymentStatus;
+  status?: string;
   stripe_payment_intent_id?: string;
   payment_method?: string;
 }

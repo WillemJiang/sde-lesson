@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../config/database';
-import { User, CreateUserInput, UpdateUserInput, userSelect } from '../../models/User';
+import { User, CreateUserInput, UpdateUserInput, userSelect, UserWithoutPassword } from '../../models/User';
 
 export interface LoginInput {
   email: string;
@@ -9,7 +9,7 @@ export interface LoginInput {
 }
 
 export interface AuthResponse {
-  user: User;
+  user: UserWithoutPassword;
   token: string;
 }
 
@@ -33,7 +33,7 @@ export class AuthService {
   generateToken(userId: string): string {
     return jwt.sign({ userId }, this.jwtSecret, {
       expiresIn: this.jwtExpiresIn,
-    });
+    } as any);
   }
 
   verifyToken(token: string): { userId: string } | null {
@@ -93,10 +93,10 @@ export class AuthService {
     const { password_hash, ...userWithoutPassword } = user;
     const token = this.generateToken(user.id);
 
-    return { user: userWithoutPassword as User, token };
+    return { user: userWithoutPassword as UserWithoutPassword, token };
   }
 
-  async verifyEmail(token: string): Promise<User> {
+  async verifyEmail(token: string): Promise<UserWithoutPassword> {
     const user = await prisma.user.findFirst({
       where: { verification_token: token },
       select: userSelect,
@@ -122,7 +122,7 @@ export class AuthService {
     return updatedUser;
   }
 
-  async getCurrentUser(userId: string): Promise<User | null> {
+  async getCurrentUser(userId: string): Promise<UserWithoutPassword | null> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: userSelect,
@@ -131,7 +131,7 @@ export class AuthService {
     return user || null;
   }
 
-  async updateUser(userId: string, input: UpdateUserInput): Promise<User> {
+  async updateUser(userId: string, input: UpdateUserInput): Promise<UserWithoutPassword> {
     const user = await prisma.user.update({
       where: { id: userId },
       data: input,

@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { User, CreateUserInput, UpdateUserInput, userSelect } from '../../models/User';
+import { User, CreateUserInput, UpdateUserInput, userSelect, UserWithoutPassword } from '../../models/User';
 
 export interface UserProfile {
   id: string;
@@ -11,7 +11,7 @@ export interface UserProfile {
   updated_at: Date;
   order_count: number;
   total_spent: number;
-  last_order_date?: Date;
+  last_order_date?: Date | undefined;
 }
 
 export interface UserFilters {
@@ -38,7 +38,7 @@ export interface UserListResponse {
 }
 
 export class UserService {
-  async createUser(input: CreateUserInput): Promise<User> {
+  async createUser(input: CreateUserInput): Promise<UserWithoutPassword> {
     const existingUser = await prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -55,7 +55,7 @@ export class UserService {
     return user;
   }
 
-  async getUserById(id: string): Promise<User | null> {
+  async getUserById(id: string): Promise<UserWithoutPassword | null> {
     const user = await prisma.user.findUnique({
       where: { id },
       select: userSelect,
@@ -64,7 +64,7 @@ export class UserService {
     return user;
   }
 
-  async getUserByEmail(email: string): Promise<User | null> {
+  async getUserByEmail(email: string): Promise<UserWithoutPassword | null> {
     const user = await prisma.user.findUnique({
       where: { email },
       select: userSelect,
@@ -73,7 +73,7 @@ export class UserService {
     return user;
   }
 
-  async updateUser(id: string, input: UpdateUserInput): Promise<User> {
+  async updateUser(id: string, input: UpdateUserInput): Promise<UserWithoutPassword> {
     const user = await prisma.user.findUnique({
       where: { id },
     });
@@ -162,7 +162,7 @@ export class UserService {
       ...user,
       order_count,
       total_spent,
-      last_order_date,
+      last_order_date: last_order_date || undefined,
     };
   }
 
@@ -264,7 +264,7 @@ export class UserService {
     };
   }
 
-  async deactivateUser(userId: string): Promise<User> {
+  async deactivateUser(userId: string): Promise<UserWithoutPassword> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -280,7 +280,7 @@ export class UserService {
     });
   }
 
-  async reactivateUser(userId: string): Promise<User> {
+  async reactivateUser(userId: string): Promise<UserWithoutPassword> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -296,7 +296,7 @@ export class UserService {
     });
   }
 
-  async updateUserVerification(userId: string, isVerified: boolean): Promise<User> {
+  async updateUserVerification(userId: string, isVerified: boolean): Promise<UserWithoutPassword> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -357,8 +357,8 @@ export class UserService {
     totalOrders: number;
     totalSpent: number;
     averageOrderValue: number;
-    favoriteCategory?: string;
-    lastPurchaseDate?: Date;
+    favoriteCategory?: string | undefined;
+    lastPurchaseDate?: Date | undefined;
   }> {
     const orders = await prisma.order.findMany({
       where: { user_id: userId },
@@ -396,8 +396,8 @@ export class UserService {
       totalOrders,
       totalSpent,
       averageOrderValue,
-      favoriteCategory,
-      lastPurchaseDate,
+      favoriteCategory: favoriteCategory || undefined,
+      lastPurchaseDate: lastPurchaseDate || undefined,
     };
   }
 }

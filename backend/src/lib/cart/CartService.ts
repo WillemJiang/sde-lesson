@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { ShoppingCart, CartItem } from '../../models';
+import { ShoppingCart, CartItem, shoppingCartWithItemsSelect } from '../../models';
 
 export interface AddToCartInput {
   user_id: string;
@@ -25,7 +25,7 @@ export interface CartWithItems {
       id: string;
       name: string;
       price: number;
-      image_url?: string;
+      image_url?: string | null;
       stock_quantity: number;
     };
   }>;
@@ -34,7 +34,7 @@ export interface CartWithItems {
 }
 
 export class CartService {
-  async getOrCreateCart(user_id: string): Promise<ShoppingCart> {
+  async getOrCreateCart(user_id: string): Promise<any> {
     let cart = await prisma.shoppingCart.findUnique({
       where: { user_id },
       include: {
@@ -94,7 +94,7 @@ export class CartService {
       product: item.product,
     }));
 
-    const total_items = items.reduce((sum, item) => sum + item.quantity, 0);
+    const total_items = items.reduce((sum, item: any) => sum + item.quantity, 0);
     const total_amount = items.reduce((sum, item) => sum + (item.price_at_time * item.quantity), 0);
 
     return {
@@ -129,7 +129,7 @@ export class CartService {
 
     const cart = await this.getOrCreateCart(user_id);
 
-    const existingItem = cart.cart_items.find(item => item.product_id === product_id);
+    const existingItem = cart.cart_items.find((item: any) => item.product_id === product_id);
 
     if (existingItem) {
       const newQuantity = existingItem.quantity + quantity;

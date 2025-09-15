@@ -23,7 +23,7 @@ export class PaymentService {
 
   constructor() {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2025-08-27.basil' as any,
     });
   }
 
@@ -61,7 +61,7 @@ export class PaymentService {
           order_id: order.id,
           stripe_payment_intent_id: paymentIntent.id,
           amount: order.total_amount,
-          status: PaymentStatus.PENDING,
+          status: PaymentStatus.PENDING as any,
           payment_method: input.payment_method,
         },
       });
@@ -98,7 +98,7 @@ export class PaymentService {
         const updatedPayment = await prisma.payment.update({
           where: { id: payment.id },
           data: {
-            status: PaymentStatus.SUCCEEDED,
+            status: PaymentStatus.SUCCEEDED as any,
           },
         });
 
@@ -114,7 +114,7 @@ export class PaymentService {
         await prisma.payment.update({
           where: { id: payment.id },
           data: {
-            status: PaymentStatus.FAILED,
+            status: PaymentStatus.FAILED as any,
           },
         });
 
@@ -124,7 +124,7 @@ export class PaymentService {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
-          status: PaymentStatus.FAILED,
+          status: PaymentStatus.FAILED as any,
         },
       });
 
@@ -156,7 +156,7 @@ export class PaymentService {
       throw new Error('Payment not found');
     }
 
-    if (payment.status !== PaymentStatus.SUCCEEDED) {
+    if (payment.status !== PaymentStatus.SUCCEEDED as any) {
       throw new Error('Payment is not in a refundable state');
     }
 
@@ -171,7 +171,7 @@ export class PaymentService {
       const updatedPayment = await prisma.payment.update({
         where: { id: payment.id },
         data: {
-          status: PaymentStatus.REFUNDED,
+          status: PaymentStatus.REFUNDED as any,
         },
       });
 
@@ -223,7 +223,7 @@ export class PaymentService {
       prisma.payment.update({
         where: { id: payment.id },
         data: {
-          status: PaymentStatus.SUCCEEDED,
+          status: PaymentStatus.SUCCEEDED as any,
         },
       }),
       prisma.order.update({
@@ -250,7 +250,7 @@ export class PaymentService {
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
-        status: PaymentStatus.FAILED,
+        status: PaymentStatus.FAILED as any,
       },
     });
   }
@@ -272,7 +272,7 @@ export class PaymentService {
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
-        status: PaymentStatus.REFUNDED,
+        status: PaymentStatus.REFUNDED as any,
       },
     });
   }
@@ -287,12 +287,12 @@ export class PaymentService {
     const payments = await prisma.payment.findMany();
 
     const totalRevenue = payments
-      .filter(p => p.status === PaymentStatus.SUCCEEDED)
+      .filter(p => p.status === PaymentStatus.SUCCEEDED as any)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    const successfulPayments = payments.filter(p => p.status === PaymentStatus.SUCCEEDED).length;
-    const failedPayments = payments.filter(p => p.status === PaymentStatus.FAILED).length;
-    const refundedPayments = payments.filter(p => p.status === PaymentStatus.REFUNDED).length;
+    const successfulPayments = payments.filter(p => p.status === PaymentStatus.SUCCEEDED as any).length;
+    const failedPayments = payments.filter(p => p.status === PaymentStatus.FAILED as any).length;
+    const refundedPayments = payments.filter(p => p.status === PaymentStatus.REFUNDED as any).length;
     const averagePaymentAmount = successfulPayments > 0 ? totalRevenue / successfulPayments : 0;
 
     return {
@@ -316,7 +316,7 @@ export class PaymentService {
       throw new Error('Payment not found');
     }
 
-    if (payment.status !== PaymentStatus.FAILED) {
+    if (payment.status !== PaymentStatus.FAILED as any) {
       throw new Error('Payment is not in a retryable state');
     }
 
@@ -333,7 +333,7 @@ export class PaymentService {
         where: { id: payment.id },
         data: {
           stripe_payment_intent_id: newPaymentIntent.id,
-          status: PaymentStatus.PENDING,
+          status: PaymentStatus.PENDING as any,
         },
       });
 
