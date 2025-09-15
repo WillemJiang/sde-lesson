@@ -199,8 +199,8 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    const beforeTotalItems = cartBeforeDelete.body.total_items;
-    const beforeTotalAmount = cartBeforeDelete.body.total_amount;
+    const beforeTotalItems = cartBeforeDelete.body.data.total_items;
+    const beforeTotalAmount = cartBeforeDelete.body.data.total_amount;
 
     // Create a new item to delete
     const newItemData = {
@@ -221,8 +221,8 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    const afterAddTotalItems = cartAfterAdd.body.total_items;
-    const afterAddTotalAmount = cartAfterAdd.body.total_amount;
+    const afterAddTotalItems = cartAfterAdd.body.data.total_items;
+    const afterAddTotalAmount = cartAfterAdd.body.data.total_amount;
 
     // Delete the item
     await request(app)
@@ -236,8 +236,8 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    const afterDeleteTotalItems = cartAfterDelete.body.total_items;
-    const afterDeleteTotalAmount = cartAfterDelete.body.total_amount;
+    const afterDeleteTotalItems = cartAfterDelete.body.data.total_items;
+    const afterDeleteTotalAmount = cartAfterDelete.body.data.total_amount;
 
     // Verify totals returned to original values
     expect(afterDeleteTotalItems).toBe(beforeTotalItems);
@@ -286,7 +286,7 @@ describe('DELETE /cart/items/{id}', () => {
       .expect(200);
 
     expect(cartBeforeDelete.body.data.items).toHaveLength(1);
-    expect(cartBeforeDelete.body.total_items).toBe(1);
+    expect(cartBeforeDelete.body.data.total_items).toBe(1);
 
     // Delete the last item
     await request(app)
@@ -301,8 +301,8 @@ describe('DELETE /cart/items/{id}', () => {
       .expect(200);
 
     expect(cartAfterDelete.body.data.items).toHaveLength(0);
-    expect(cartAfterDelete.body.total_items).toBe(0);
-    expect(cartAfterDelete.body.total_amount).toBe(0);
+    expect(cartAfterDelete.body.data.total_items).toBe(0);
+    expect(cartAfterDelete.body.data.total_amount).toBe(0);
     expect(cartAfterDelete.body).toHaveProperty('id'); // Cart should still exist
   });
 

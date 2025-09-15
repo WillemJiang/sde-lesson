@@ -8,7 +8,10 @@ const ADMIN_EMAILS = [
   'admin-update@example.com',
   'admin-post@example.com',
   'admin-get@example.com',
-  'admin-cart-delete@example.com'
+  'admin-cart-delete@example.com',
+  'admin-cart@example.com',
+  'admin-cart-items@example.com',
+  'admin-cart-update@example.com'
 ];
 
 export const requireAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

@@ -57,7 +57,8 @@ describe('GET /cart', () => {
       price: 49.99,
       stock_quantity: 100,
       sku: 'CART-TEST-001',
-      category: 'electronics'
+      category: 'electronics',
+      is_active: true
     };
 
     const createResponse = await request(app)
@@ -65,7 +66,7 @@ describe('GET /cart', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
   });
 
   it('should return empty cart for new user', async () => {
@@ -74,15 +75,15 @@ describe('GET /cart', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('user_id');
-    expect(response.body).toHaveProperty('created_at');
-    expect(response.body).toHaveProperty('updated_at');
-    expect(response.body).toHaveProperty('items');
-    expect(response.body).toHaveProperty('total_items', 0);
-    expect(response.body).toHaveProperty('total_amount', 0);
-    expect(Array.isArray(response.body.items)).toBe(true);
-    expect(response.body.items).toHaveLength(0);
+    expect(response.body.data).toHaveProperty('id');
+    expect(response.body.data).toHaveProperty('user_id');
+    expect(response.body.data).toHaveProperty('created_at');
+    expect(response.body.data).toHaveProperty('updated_at');
+    expect(response.body.data).toHaveProperty('items');
+    expect(response.body.data).toHaveProperty('total_items', 0);
+    expect(response.body.data).toHaveProperty('total_amount', 0);
+    expect(Array.isArray(response.body.data.items)).toBe(true);
+    expect(response.body.data.items).toHaveLength(0);
   });
 
   it('should return 401 when no authentication token provided', async () => {
@@ -117,14 +118,14 @@ describe('GET /cart', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('items');
-    expect(Array.isArray(response.body.items)).toBe(true);
-    expect(response.body.items).toHaveLength(1);
-    expect(response.body).toHaveProperty('total_items', 2);
-    expect(response.body).toHaveProperty('total_amount', 99.98); // 2 * 49.99
+    expect(response.body.data).toHaveProperty('items');
+    expect(Array.isArray(response.body.data.items)).toBe(true);
+    expect(response.body.data.items).toHaveLength(1);
+    expect(response.body.data).toHaveProperty('total_items', 2);
+    expect(response.body.data).toHaveProperty('total_amount', 99.98); // 2 * 49.99
 
     // Verify cart item structure
-    const cartItem = response.body.items[0];
+    const cartItem = response.body.data.items[0];
     expect(cartItem).toHaveProperty('id');
     expect(cartItem).toHaveProperty('product_id', productId);
     expect(cartItem).toHaveProperty('quantity', 2);
@@ -140,7 +141,7 @@ describe('GET /cart', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    const cart = response.body;
+    const cart = response.body.data;
 
     // Verify all expected fields are present and have correct types
     expect(typeof cart.id).toBe('string');
@@ -165,7 +166,8 @@ describe('GET /cart', () => {
       price: 29.99,
       stock_quantity: 50,
       sku: 'CART-TEST-002',
-      category: 'books'
+      category: 'books',
+      is_active: true
     };
 
     const secondProductResponse = await request(app)
@@ -173,7 +175,17 @@ describe('GET /cart', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(secondProductData);
 
-    const secondProductId = secondProductResponse.body.id;
+    const secondProductId = secondProductResponse.body.data.id;
+
+    // Add first item to cart
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        product_id: productId,
+        quantity: 2
+      })
+      .expect(201);
 
     // Add second item to cart
     await request(app)
@@ -191,22 +203,32 @@ describe('GET /cart', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body.items).toHaveLength(2);
-    expect(response.body.total_items).toBe(3); // 2 + 1
-    expect(response.body.total_amount).toBe(129.97); // (2 * 49.99) + 29.99
+    expect(response.body.data.items).toHaveLength(2);
+    expect(response.body.data.total_items).toBe(3); // 2 + 1
+    expect(response.body.data.total_amount).toBe(129.97); // (2 * 49.99) + 29.99
   });
 
   it('should return updated cart after item quantity changes', async () => {
+    // Add an item to cart first
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        product_id: productId,
+        quantity: 2
+      })
+      .expect(201);
+
     // Get current cart
     const initialResponse = await request(app)
       .get('/api/v1/cart')
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    const initialTotal = initialResponse.body.total_amount;
+    const initialTotal = initialResponse.body.data.total_amount;
 
     // Update quantity of first item
-    const firstItemId = initialResponse.body.items[0].id;
+    const firstItemId = initialResponse.body.data.items[0].id;
     await request(app)
       .put(`/api/v1/cart/items/${firstItemId}`)
       .set('Authorization', `Bearer ${authToken}`)
@@ -219,8 +241,8 @@ describe('GET /cart', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(updatedResponse.body.total_items).toBe(4); // 3 + 1
-    expect(updatedResponse.body.total_amount).toBeGreaterThan(initialTotal);
+    expect(updatedResponse.body.data.total_items).toBe(3); // Updated to 3
+    expect(updatedResponse.body.data.total_amount).toBeGreaterThan(initialTotal);
   });
 
   it('should reflect cart changes immediately after operations', async () => {
@@ -231,12 +253,12 @@ describe('GET /cart', () => {
       .expect(200);
 
     // Cart should be in a consistent state
-    expect(response.body.total_items).toBe(
-      response.body.items.reduce((sum: number, item: any) => sum + item.quantity, 0)
+    expect(response.body.data.total_items).toBe(
+      response.body.data.items.reduce((sum: number, item: any) => sum + item.quantity, 0)
     );
 
-    expect(response.body.total_amount).toBe(
-      response.body.items.reduce((sum: number, item: any) => sum + (item.quantity * item.price_at_time), 0)
+    expect(response.body.data.total_amount).toBe(
+      response.body.data.items.reduce((sum: number, item: any) => sum + (item.quantity * item.price_at_time), 0)
     );
   });
 });

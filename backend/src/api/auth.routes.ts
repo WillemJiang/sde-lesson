@@ -9,8 +9,8 @@ const authService = new AuthService();
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-  body('first_name').notEmpty().withMessage('First name is required'),
-  body('last_name').notEmpty().withMessage('Last name is required'),
+  body('first_name').isLength({ min: 2 }).withMessage('First name must be at least 2 characters'),
+  body('last_name').isLength({ min: 2 }).withMessage('Last name must be at least 2 characters'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);

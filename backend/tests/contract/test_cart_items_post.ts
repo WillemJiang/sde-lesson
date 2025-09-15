@@ -66,7 +66,7 @@ describe('POST /cart/items', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
 
     // Create a product with low stock for testing insufficient stock scenarios
     const lowStockProductData = {
@@ -83,7 +83,7 @@ describe('POST /cart/items', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(lowStockProductData);
 
-    lowStockProductId = lowStockCreateResponse.body.id;
+    lowStockProductId = lowStockCreateResponse.body.data.id;
   });
 
   it('should add item to cart successfully', async () => {
@@ -98,14 +98,14 @@ describe('POST /cart/items', () => {
       .send(itemData)
       .expect(201);
 
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('product_id', productId);
-    expect(response.body).toHaveProperty('quantity', itemData.quantity);
-    expect(response.body).toHaveProperty('price_at_time', 79.99);
-    expect(response.body).toHaveProperty('created_at');
-    expect(response.body).toHaveProperty('product');
-    expect(response.body.product).toHaveProperty('id', productId);
-    expect(response.body.product).toHaveProperty('name', 'Test Product for Cart Items');
+    expect(response.body.data).toHaveProperty('id');
+    expect(response.body.data).toHaveProperty('product_id', productId);
+    expect(response.body.data).toHaveProperty('quantity', itemData.quantity);
+    expect(response.body.data).toHaveProperty('price_at_time', 79.99);
+    expect(response.body.data).toHaveProperty('created_at');
+    expect(response.body.data).toHaveProperty('product');
+    expect(response.body.data.product).toHaveProperty('id', productId);
+    expect(response.body.data.product).toHaveProperty('name', 'Test Product for Cart Items');
   });
 
   it('should return 401 when no authentication token provided', async () => {
@@ -291,7 +291,7 @@ describe('POST /cart/items', () => {
       .expect(201);
 
     // Should have total quantity of 4 (1 + 3)
-    expect(response.body).toHaveProperty('quantity', 4);
+    expect(response.body.data).toHaveProperty('quantity', 4);
   });
 
   it('should return consistent cart item structure', async () => {
@@ -306,7 +306,7 @@ describe('POST /cart/items', () => {
       .send(itemData)
       .expect(201);
 
-    const cartItem = response.body;
+    const cartItem = response.body.data;
 
     // Verify all expected fields are present and have correct types
     expect(typeof cartItem.id).toBe('string');
@@ -334,6 +334,6 @@ describe('POST /cart/items', () => {
       .send(itemData)
       .expect(201);
 
-    expect(response.body).toHaveProperty('price_at_time', 79.99);
+    expect(response.body.data).toHaveProperty('price_at_time', 79.99);
   });
 });

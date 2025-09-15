@@ -67,7 +67,7 @@ describe('PUT /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
 
     // Create a product with low stock
     const lowStockProductData = {
@@ -84,7 +84,7 @@ describe('PUT /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(lowStockProductData);
 
-    lowStockProductId = lowStockCreateResponse.body.id;
+    lowStockProductId = lowStockCreateResponse.body.data.id;
 
     // Add an item to cart to get a cart item ID for testing
     const addItemData = {
@@ -97,7 +97,7 @@ describe('PUT /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(addItemData);
 
-    cartItemId = addItemResponse.body.id;
+    cartItemId = addItemResponse.body.data.id;
   });
 
   it('should update cart item quantity successfully', async () => {
@@ -111,12 +111,12 @@ describe('PUT /cart/items/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id', cartItemId);
-    expect(response.body).toHaveProperty('quantity', updateData.quantity);
-    expect(response.body).toHaveProperty('product_id', productId);
-    expect(response.body).toHaveProperty('price_at_time', 89.99);
-    expect(response.body).toHaveProperty('product');
-    expect(response.body.product).toHaveProperty('id', productId);
+    expect(response.body.data).toHaveProperty('id', cartItemId);
+    expect(response.body.data).toHaveProperty('quantity', updateData.quantity);
+    expect(response.body.data).toHaveProperty('product_id', productId);
+    expect(response.body.data).toHaveProperty('price_at_time', 89.99);
+    expect(response.body.data).toHaveProperty('product');
+    expect(response.body.data.product).toHaveProperty('id', productId);
   });
 
   it('should return 401 when no authentication token provided', async () => {
@@ -226,7 +226,7 @@ describe('PUT /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(addItemData);
 
-    const lowStockCartItemId = addItemResponse.body.id;
+    const lowStockCartItemId = addItemResponse.body.data.id;
 
     // Try to update to quantity that exceeds available stock
     const updateData = {
@@ -252,7 +252,7 @@ describe('PUT /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(addItemData);
 
-    const lowStockCartItemId = addItemResponse.body.id;
+    const lowStockCartItemId = addItemResponse.body.data.id;
 
     // Update to exactly the remaining stock (8 - 3 - 2 = 3 remaining)
     const updateData = {
@@ -265,7 +265,7 @@ describe('PUT /cart/items/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('quantity', 3);
+    expect(response.body.data).toHaveProperty('quantity', 3);
   });
 
   it('should allow decreasing quantity', async () => {
@@ -279,7 +279,7 @@ describe('PUT /cart/items/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('quantity', 1);
+    expect(response.body.data).toHaveProperty('quantity', 1);
   });
 
   it('should maintain original price when updating quantity', async () => {
@@ -289,7 +289,7 @@ describe('PUT /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    const cartItem = currentResponse.body.items.find((item: any) => item.id === cartItemId);
+    const cartItem = currentResponse.body.data.items.find((item: any) => item.id === cartItemId);
     const originalPrice = cartItem.price_at_time;
 
     const updateData = {
@@ -302,7 +302,7 @@ describe('PUT /cart/items/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('price_at_time', originalPrice);
+    expect(response.body.data).toHaveProperty('price_at_time', originalPrice);
   });
 
   it('should return consistent cart item structure after update', async () => {
@@ -316,7 +316,7 @@ describe('PUT /cart/items/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    const cartItem = response.body;
+    const cartItem = response.body.data;
 
     // Verify all expected fields are present and have correct types
     expect(typeof cartItem.id).toBe('string');
@@ -338,7 +338,7 @@ describe('PUT /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    const cartItem = currentResponse.body.items.find((item: any) => item.id === cartItemId);
+    const cartItem = currentResponse.body.data.items.find((item: any) => item.id === cartItemId);
     const currentQuantity = cartItem.quantity;
 
     const updateData = {
@@ -351,6 +351,6 @@ describe('PUT /cart/items/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('quantity', currentQuantity);
+    expect(response.body.data).toHaveProperty('quantity', currentQuantity);
   });
 });

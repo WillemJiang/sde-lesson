@@ -16,10 +16,25 @@ router.get('/', authenticateToken, async (req: Request, res: Response): Promise<
       return;
     }
 
-    const cart = await cartService.getCart(userId);
+    let cart = await cartService.getCart(userId);
 
+    // If cart doesn't exist, create a new empty cart
     if (!cart) {
-      res.status(404).json({ error: 'Cart not found' });
+      const newCart = await cartService.getOrCreateCart(userId);
+      // Format the cart data properly
+      const formattedCart = {
+        id: newCart.id,
+        user_id: newCart.user_id,
+        created_at: newCart.created_at,
+        updated_at: newCart.updated_at,
+        items: [],
+        total_items: 0,
+        total_amount: 0,
+      };
+      res.json({
+        message: 'Cart retrieved successfully',
+        data: formattedCart,
+      });
       return;
     }
 
@@ -38,7 +53,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response): Promise<
 
 // Add item to cart
 router.post('/items', [
-  body('product_id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID'),
+  body('product_id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
   body('quantity').isInt({ min: 1 }).withMessage('Quantity must be a positive integer'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -80,7 +95,7 @@ router.post('/items', [
 
 // Update cart item quantity
 router.put('/items/:id', [
-  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid cart item ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid cart item ID format'),
   body('quantity').isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -125,7 +140,7 @@ router.put('/items/:id', [
 
 // Remove item from cart
 router.delete('/items/:id', [
-  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid cart item ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid cart item ID format'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);

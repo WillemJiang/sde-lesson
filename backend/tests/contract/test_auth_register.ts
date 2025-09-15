@@ -16,10 +16,12 @@ describe('POST /auth/register', () => {
       .send(userData)
       .expect(201);
 
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('email', userData.email);
     expect(response.body).toHaveProperty('message');
     expect(response.body.message).toContain('User registered successfully');
+    expect(response.body).toHaveProperty('token');
+    expect(response.body).toHaveProperty('user');
+    expect(response.body.user).toHaveProperty('id');
+    expect(response.body.user).toHaveProperty('email', userData.email);
   });
 
   it('should return 400 for invalid email', async () => {
