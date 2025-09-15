@@ -14,7 +14,6 @@ export interface User {
 
 export interface CreateUserInput {
   email: string;
-  password_hash: string;
   first_name: string;
   last_name: string;
   verification_token?: string;
@@ -22,7 +21,6 @@ export interface CreateUserInput {
 
 export interface UpdateUserInput {
   email?: string;
-  password_hash?: string;
   first_name?: string;
   last_name?: string;
   is_verified?: boolean;

@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../config/database';
 import { User, CreateUserInput, UpdateUserInput, userSelect, UserWithoutPassword } from '../../models/User';
