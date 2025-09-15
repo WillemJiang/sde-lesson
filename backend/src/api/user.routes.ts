@@ -2,15 +2,20 @@ import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { UserService, UserQueryOptions, UserFilters } from '../lib/user/UserService';
 import { UpdateUserInput } from '../models/User';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 const userService = new UserService();
 
 // Get user profile
-router.get('/profile', async (req: Request, res: Response): Promise<void> => {
+router.get('/profile', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const profile = await userService.getUserProfile(userId);
 
@@ -39,7 +44,7 @@ router.put('/profile', [
   body('email').optional().isEmail().withMessage('Invalid email address'),
   body('phone').optional().isString(),
   body('address').optional().isString(),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -47,8 +52,12 @@ router.put('/profile', [
     return;
     }
 
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const updateData: UpdateUserInput = {};
 
@@ -78,7 +87,7 @@ router.put('/profile', [
 router.get('/orders', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -86,8 +95,12 @@ router.get('/orders', [
     return;
     }
 
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const page = req.query.page ? parseInt(req.query.page as string) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
@@ -108,10 +121,14 @@ router.get('/orders', [
 });
 
 // Get user purchase summary
-router.get('/purchase-summary', async (req: Request, res: Response): Promise<void> => {
+router.get('/purchase-summary', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const summary = await userService.getUserPurchaseSummary(userId);
 

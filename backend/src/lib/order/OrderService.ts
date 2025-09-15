@@ -133,7 +133,26 @@ export class OrderService {
       where: { cart_id: cart.id },
     });
 
-    return this.transformOrder(order);
+    // Refetch the order with all includes to get the complete order with items
+    const completeOrder = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        order_items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                image_url: true,
+              },
+            },
+          },
+        },
+        payment: true,
+      },
+    });
+
+    return this.transformOrder(completeOrder);
   }
 
   async getOrderById(id: string): Promise<OrderWithItems | null> {

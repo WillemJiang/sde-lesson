@@ -113,7 +113,7 @@ router.post('/', [
 
 // Get a specific product by ID
 router.get('/:id', [
-  param('id').isUUID().withMessage('Invalid product ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -149,7 +149,7 @@ router.get('/:id', [
 
 // Update a product
 router.put('/:id', [
-  param('id').isUUID().withMessage('Invalid product ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
   body('name').optional().notEmpty().withMessage('Product name cannot be empty'),
   body('description').optional().isString(),
   body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
@@ -207,7 +207,7 @@ router.put('/:id', [
 
 // Delete a product
 router.delete('/:id', [
-  param('id').isUUID().withMessage('Invalid product ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -223,9 +223,7 @@ router.delete('/:id', [
     }
     await productService.deleteProduct(id);
 
-    res.json({
-      message: 'Product deleted successfully',
-    });
+    res.status(204).send();
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'Product not found') {

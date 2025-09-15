@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { OrderService, CreateOrderInput } from '../lib/order/OrderService';
 import { OrderStatus, OrderQueryOptions } from '../models/Order';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 const orderService = new OrderService();
@@ -61,7 +62,7 @@ router.get('/', [
 router.post('/', [
   body('shipping_address').notEmpty().withMessage('Shipping address is required'),
   body('billing_address').notEmpty().withMessage('Billing address is required'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -69,16 +70,32 @@ router.post('/', [
     return;
     }
 
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    // Convert address objects to strings if needed
+    const shippingAddress = typeof req.body.shipping_address === 'object'
+      ? JSON.stringify(req.body.shipping_address)
+      : req.body.shipping_address;
+    const billingAddress = typeof req.body.billing_address === 'object'
+      ? JSON.stringify(req.body.billing_address)
+      : req.body.billing_address;
 
     const input: CreateOrderInput = {
       user_id: userId,
-      shipping_address: req.body.shipping_address,
-      billing_address: req.body.billing_address,
+      shipping_address: shippingAddress,
+      billing_address: billingAddress,
     };
 
+    console.log('Creating order with input:', input);
+    console.log('About to call orderService.createOrder');
+
     const order = await orderService.createOrder(input);
+    console.log('Order created successfully:', order);
 
     res.status(201).json({
       message: 'Order created successfully',
@@ -142,8 +159,12 @@ router.post('/:id/cancel', [
     return;
     }
 
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const { id } = req.params;
     if (!id) {

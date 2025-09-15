@@ -1,15 +1,20 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { CartService, AddToCartInput, UpdateCartItemInput } from '../lib/cart/CartService';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 const cartService = new CartService();
 
 // Get user's shopping cart
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const cart = await cartService.getCart(userId);
 
@@ -33,9 +38,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
 // Add item to cart
 router.post('/items', [
-  body('product_id').isUUID().withMessage('Invalid product ID'),
+  body('product_id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID'),
   body('quantity').isInt({ min: 1 }).withMessage('Quantity must be a positive integer'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -43,8 +48,12 @@ router.post('/items', [
     return;
     }
 
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const input: AddToCartInput = {
       user_id: userId,
@@ -73,7 +82,7 @@ router.post('/items', [
 router.put('/items/:id', [
   param('id').isUUID().withMessage('Invalid cart item ID'),
   body('quantity').isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -81,8 +90,12 @@ router.put('/items/:id', [
     return;
     }
 
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const { id } = req.params;
     if (!id) {
@@ -113,7 +126,7 @@ router.put('/items/:id', [
 // Remove item from cart
 router.delete('/items/:id', [
   param('id').isUUID().withMessage('Invalid cart item ID'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -121,8 +134,12 @@ router.delete('/items/:id', [
     return;
     }
 
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const { id } = req.params;
     if (!id) {
@@ -146,10 +163,14 @@ router.delete('/items/:id', [
 });
 
 // Clear entire cart
-router.delete('/', async (req: Request, res: Response): Promise<void> => {
+router.delete('/', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     await cartService.clearCart(userId);
 
@@ -166,10 +187,14 @@ router.delete('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 // Get cart item count
-router.get('/count', async (req: Request, res: Response): Promise<void> => {
+router.get('/count', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const count = await cartService.getCartItemCount(userId);
 
@@ -187,10 +212,14 @@ router.get('/count', async (req: Request, res: Response): Promise<void> => {
 });
 
 // Get cart total amount
-router.get('/total', async (req: Request, res: Response): Promise<void> => {
+router.get('/total', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const total = await cartService.getCartTotal(userId);
 
@@ -208,10 +237,14 @@ router.get('/total', async (req: Request, res: Response): Promise<void> => {
 });
 
 // Validate cart items (check stock and availability)
-router.get('/validate', async (req: Request, res: Response): Promise<void> => {
+router.get('/validate', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    // In a real app, you'd get this from JWT authentication
-    const userId = req.headers['user-id'] as string || 'demo-user-id';
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     const validation = await cartService.validateCartItems(userId);
 

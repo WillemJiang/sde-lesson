@@ -11,6 +11,7 @@ import cartRoutes from './cart.routes';
 import orderRoutes from './order.routes';
 import paymentRoutes from './payment.routes';
 import userRoutes from './user.routes';
+import { authenticateToken } from '../middleware/auth';
 
 // Create the main API router
 const apiRouter = Router();
@@ -63,21 +64,22 @@ apiRouter.use((err: any, req: express.Request, res: express.Response, next: expr
   next(err);
 });
 
-// Custom middleware for authentication simulation
-// In a real app, this would verify JWT tokens
+// Authentication middleware for protected routes
 apiRouter.use((req, res, next) => {
-  // For demo purposes, we'll simulate user authentication
-  // In production, this would verify JWT tokens from the Authorization header
-  const authHeader = req.headers.authorization;
-
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    // In production, verify the JWT token here
-    // For now, we'll set a demo user ID
-    req.headers['user-id'] = 'demo-user-id';
+  // Skip authentication for auth routes, health checks, and routes that handle their own auth
+  if (req.path.startsWith('/auth') ||
+      req.path === '/health' ||
+      req.path === '/info' ||
+      req.path.startsWith('/cart') ||
+      req.path.startsWith('/products') ||
+      req.path.startsWith('/orders') ||
+      req.path.startsWith('/payments') ||
+      req.path.startsWith('/users')) {
+    return next();
   }
 
-  next();
+  // Apply authentication middleware to all other routes
+  authenticateToken(req, res, next);
 });
 
 // Custom middleware for rate limiting simulation

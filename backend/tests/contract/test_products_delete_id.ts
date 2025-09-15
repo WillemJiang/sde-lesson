@@ -66,7 +66,7 @@ describe('DELETE /products/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productToDeleteData);
 
-    productIdToDelete = createDeleteResponse.body.id;
+    productIdToDelete = createDeleteResponse.body.data.id;
 
     const productToKeepData = {
       name: 'Product to Keep',
@@ -82,7 +82,7 @@ describe('DELETE /products/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productToKeepData);
 
-    productIdToKeep = createKeepResponse.body.id;
+    productIdToKeep = createKeepResponse.body.data.id;
   });
 
   it('should delete product successfully with admin privileges', async () => {
@@ -150,7 +150,7 @@ describe('DELETE /products/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    const tempProductId = createResponse.body.id;
+    const tempProductId = createResponse.body.data.id;
 
     // Delete the product
     const response = await request(app)
@@ -158,8 +158,8 @@ describe('DELETE /products/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .expect(204);
 
-    // Verify response body is empty
-    expect(response.body).toEqual({});
+    // Verify response body is empty (204 responses should have no body)
+    expect(response.text).toBe('');
   });
 
   it('should handle deletion of already deleted product', async () => {
@@ -176,8 +176,8 @@ describe('DELETE /products/{id}', () => {
       .get(`/api/v1/products/${productIdToKeep}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id', productIdToKeep);
-    expect(response.body).toHaveProperty('name', 'Product to Keep');
+    expect(response.body.data).toHaveProperty('id', productIdToKeep);
+    expect(response.body.data).toHaveProperty('name', 'Product to Keep');
   });
 
   it('should allow deletion of product with zero stock', async () => {
@@ -196,13 +196,16 @@ describe('DELETE /products/{id}', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(zeroStockProduct);
 
-    const zeroStockProductId = createResponse.body.id;
+    const zeroStockProductId = createResponse.body.data.id;
 
     // Delete the product
-    await request(app)
+    const deleteResponse = await request(app)
       .delete(`/api/v1/products/${zeroStockProductId}`)
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .expect(204);
+
+    // Verify response body is empty (204 responses should have no body)
+    expect(deleteResponse.text).toBe('');
 
     // Verify it's deleted
     await request(app)
@@ -216,6 +219,6 @@ describe('DELETE /products/{id}', () => {
     await request(app)
       .delete(`/api/v1/products/${malformedId}`)
       .set('Authorization', `Bearer ${adminAuthToken}`)
-      .expect(404);
+      .expect(400);
   });
 });

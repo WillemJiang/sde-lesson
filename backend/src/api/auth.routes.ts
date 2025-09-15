@@ -9,8 +9,8 @@ const authService = new AuthService();
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-  body('firstName').notEmpty().withMessage('First name is required'),
-  body('lastName').notEmpty().withMessage('Last name is required'),
+  body('first_name').notEmpty().withMessage('First name is required'),
+  body('last_name').notEmpty().withMessage('Last name is required'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -22,8 +22,8 @@ router.post('/register', [
     const registerInput: RegisterInput = {
       email: req.body.email,
       password: req.body.password,
-      first_name: req.body.firstName,
-      last_name: req.body.lastName,
+      first_name: req.body.first_name,
+      last_name: req.body.last_name,
     };
 
     const result = await authService.register(registerInput);

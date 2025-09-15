@@ -17,12 +17,13 @@ declare global {
   }
 }
 
-export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    res.status(401).json({ error: 'Access token required' });
+    return;
   }
 
   try {
@@ -31,21 +32,23 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     // Verify user exists in database
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, email: true, isActive: true }
+      select: { id: true, email: true }
     });
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({ error: 'Invalid or inactive user' });
+    if (!user) {
+      res.status(401).json({ error: 'Invalid user' });
+      return;
     }
 
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    res.status(403).json({ error: 'Invalid or expired token' });
+    return;
   }
 };
 
-export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -55,10 +58,10 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
-        select: { id: true, email: true, isActive: true }
+        select: { id: true, email: true }
       });
 
-      if (user && user.isActive) {
+      if (user) {
         req.user = decoded;
       }
     } catch (error) {

@@ -6,7 +6,11 @@ const config: Config = {
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testRegex: ['(/tests/.*|(\\.|/)(test|spec))\\.(ts|js)$'],
   transform: {
-    '^.+\\.(ts|js)$': 'ts-jest',
+    '^.+\\.(ts|js)$': ['ts-jest', {
+      diagnostics: {
+        ignoreCodes: [7016, 7006],
+      },
+    }],
   },
   moduleNameMapper: {},
   collectCoverageFrom: [
@@ -24,13 +28,6 @@ const config: Config = {
   clearMocks: true,
   resetMocks: true,
   restoreMocks: true,
-  globals: {
-    'ts-jest': {
-      diagnostics: {
-        ignoreCodes: [7016, 7006],
-      },
-    },
-  },
 };
 
 export default config;

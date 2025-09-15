@@ -11,7 +11,7 @@ describe('POST /payments/create-payment-intent', () => {
   beforeAll(async () => {
     // Create regular user
     const userData = {
-      email: 'payment-intent-test@example.com',
+      email: `payment-intent-test-${Math.random().toString(36).substring(7)}@example.com`,
       password: 'Password123!',
       first_name: 'John',
       last_name: 'Doe'
@@ -32,7 +32,7 @@ describe('POST /payments/create-payment-intent', () => {
 
     // Create admin user
     const adminData = {
-      email: 'admin-payment-intent@example.com',
+      email: `admin-payment-intent-${Math.random().toString(36).substring(7)}@example.com`,
       password: 'Password123!',
       first_name: 'Admin',
       last_name: 'User'
@@ -57,7 +57,7 @@ describe('POST /payments/create-payment-intent', () => {
       description: 'A test product for payment intent testing',
       price: 249.99,
       stock_quantity: 100,
-      sku: 'PAYMENT-INTENT-001',
+      sku: `PAYMENT-INTENT-${Math.random().toString(36).substring(7)}`,
       category: 'electronics'
     };
 
@@ -66,7 +66,7 @@ describe('POST /payments/create-payment-intent', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
 
     // Create an order for testing
     await request(app)
@@ -100,10 +100,43 @@ describe('POST /payments/create-payment-intent', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(orderData);
 
-    orderId = orderResponse.body.id;
+    orderId = orderResponse.body.data.id;
   });
 
   it('should create payment intent successfully', async () => {
+    // Create a fresh order for this test since database cleanup happens between tests
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        product_id: productId,
+        quantity: 2
+      })
+      .expect(201);
+
+    const orderData = {
+      shipping_address: {
+        street: '123 Payment Intent St',
+        city: 'Payment City',
+        state: 'PC',
+        zip_code: '12345',
+        country: 'USA'
+      },
+      billing_address: {
+        street: '123 Payment Intent St',
+        city: 'Payment City',
+        state: 'PC',
+        zip_code: '12345',
+        country: 'USA'
+      }
+    };
+
+    const orderResponse = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(orderData);
+
+    const orderId = orderResponse.body.data.id;
     const paymentIntentData = {
       order_id: orderId
     };
@@ -171,7 +204,7 @@ describe('POST /payments/create-payment-intent', () => {
   it('should return 400 when order belongs to another user', async () => {
     // Create another user and order
     const otherUserData = {
-      email: 'other-payment-user@example.com',
+      email: `other-payment-user-${Math.random().toString(36).substring(7)}@example.com`,
       password: 'Password123!',
       first_name: 'Jane',
       last_name: 'Smith'

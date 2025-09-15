@@ -28,12 +28,16 @@ export class PaymentService {
   }
 
   async createPaymentIntent(input: CreatePaymentIntentInput): Promise<PaymentIntentResponse> {
+    console.log('PaymentService.createPaymentIntent called with input:', input);
+
     const order = await prisma.order.findUnique({
       where: { id: input.order_id },
       include: {
         payment: true,
       },
     });
+
+    console.log('Found order:', order);
 
     if (!order) {
       throw new Error('Order not found');
@@ -48,6 +52,7 @@ export class PaymentService {
     }
 
     try {
+      console.log('Creating Stripe payment intent for amount:', order.total_amount);
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: Math.round(order.total_amount * 100),
         currency: 'usd',

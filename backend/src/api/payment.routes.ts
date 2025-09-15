@@ -7,8 +7,8 @@ const paymentService = new PaymentService();
 
 // Create payment intent
 router.post('/create-payment-intent', [
-  body('order_id').isUUID().withMessage('Invalid order ID'),
-  body('payment_method').isIn(['card', 'paypal', 'bank_transfer']).withMessage('Invalid payment method'),
+  body('order_id').matches(/^[a-z0-9]+$/).withMessage('Invalid order ID'),
+  body('payment_method').optional().isIn(['card', 'paypal', 'bank_transfer']).withMessage('Invalid payment method'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -19,19 +19,21 @@ router.post('/create-payment-intent', [
 
     const input: CreatePaymentIntentInput = {
       order_id: req.body.order_id,
-      payment_method: req.body.payment_method,
+      payment_method: req.body.payment_method || 'card',
     };
 
+    console.log('Creating payment intent with input:', input);
     const result = await paymentService.createPaymentIntent(input);
+    console.log('Payment intent created successfully:', result);
 
-    res.status(201).json({
-      message: 'Payment intent created successfully',
-      data: result,
+    res.status(200).json({
+      client_secret: result.client_secret,
+      payment_intent_id: result.payment_intent_id,
     });
   } catch (error) {
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 :
-                       error.message.includes('already exists') ? 409 :
+                       error.message.includes('already exists') ? 400 :
                        error.message.includes('payable state') ? 400 : 400;
       res.status(statusCode).json({ error: error.message });
       return;
