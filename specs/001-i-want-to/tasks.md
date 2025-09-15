@@ -4,8 +4,8 @@
 **Prerequisites**: plan.md, research.md, data-model.md, contracts/api.yaml, quickstart.md
 **Tech Stack**: React/TypeScript frontend, Node.js/Express backend, SQLite/PostgreSQL, Stripe
 
-## Current Status: 48/94 Tasks Complete (51%)
-**Phase**: Setup Complete ✅ | Contract Tests Complete ✅ | Integration Tests Complete ✅ | Database Models Complete ✅ | Library Services Complete ✅ | API Endpoints Complete ✅ | Frontend Implementation Pending
+## Current Status: 56/94 Tasks Complete (60%)
+**Phase**: Setup Complete ✅ | Contract Tests Complete ✅ | Integration Tests Complete ✅ | Database Models Complete ✅ | Library Services Complete ✅ | API Endpoints Complete ✅ | Backend Integration Complete ✅ | Frontend Implementation Pending
 
 ## Execution Flow (main)
 ```
@@ -123,14 +123,14 @@
 ## Phase 3.4: Integration
 
 ### Backend Integration
-- [ ] T066 Database connection and Prisma client setup in backend/src/config/database.ts
-- [ ] T067 JWT authentication middleware in backend/src/middleware/auth.ts
-- [ ] T068 Input validation middleware in backend/src/middleware/validation.ts
-- [ ] T069 Error handling middleware in backend/src/middleware/error.ts
-- [ ] T070 CORS and security middleware in backend/src/middleware/security.ts
-- [ ] T071 Logging and observability setup in backend/src/config/logging.ts
-- [ ] T072 Environment configuration management in backend/src/config/env.ts
-- [ ] T073 Stripe webhook handler in backend/src/webhooks/stripe.ts
+- [x] T066 Database connection and Prisma client setup in backend/src/config/database.ts
+- [x] T067 JWT authentication middleware in backend/src/middleware/auth.ts
+- [x] T068 Input validation middleware in backend/src/middleware/validation.ts
+- [x] T069 Error handling middleware in backend/src/middleware/error.ts
+- [x] T070 CORS and security middleware in backend/src/middleware/security.ts
+- [x] T071 Logging and observability setup in backend/src/config/logging.ts
+- [x] T072 Environment configuration management in backend/src/config/env.ts
+- [x] T073 Stripe webhook handler in backend/src/webhooks/stripe.ts
 
 ### Frontend Integration
 - [ ] T074 State management setup (Redux/Context) in frontend/src/store/
