@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
-import { OrderService, CreateOrderInput, OrderStatus } from '../lib/order/OrderService';
+import { OrderService, CreateOrderInput } from '../lib/order/OrderService';
+import { OrderStatus, OrderQueryOptions } from '../models/Order';
 
 const router = Router();
 const orderService = new OrderService();
@@ -15,25 +16,31 @@ router.get('/', [
   query('user_id').optional().isUUID().withMessage('Invalid user ID'),
   query('start_date').optional().isISO8601().withMessage('Start date must be a valid date'),
   query('end_date').optional().isISO8601().withMessage('End date must be a valid date'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
-    const options = {
+    const options: OrderQueryOptions = {
       page: req.query.page ? parseInt(req.query.page as string) : 1,
       limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
-      sortBy: req.query.sortBy as string || 'created_at',
-      sortOrder: req.query.sortOrder as string || 'desc',
-      filters: {
-        status: req.query.status as OrderStatus || undefined,
-        user_id: req.query.user_id as string || undefined,
-        start_date: req.query.start_date ? new Date(req.query.start_date as string) : undefined,
-        end_date: req.query.end_date ? new Date(req.query.end_date as string) : undefined,
-      },
+      sortBy: (req.query.sortBy as 'created_at' | 'total_amount' | 'status') || 'created_at',
+      sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
     };
+
+    if (req.query.status) options.filters = { status: req.query.status as OrderStatus };
+    if (req.query.user_id) {
+      options.filters = { ...options.filters, user_id: req.query.user_id as string };
+    }
+    if (req.query.start_date) {
+      options.filters = { ...options.filters, date_from: new Date(req.query.start_date as string) };
+    }
+    if (req.query.end_date) {
+      options.filters = { ...options.filters, date_to: new Date(req.query.end_date as string) };
+    }
 
     const result = await orderService.getOrders(options);
 
@@ -43,7 +50,8 @@ router.get('/', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -53,11 +61,12 @@ router.get('/', [
 router.post('/', [
   body('shipping_address').notEmpty().withMessage('Shipping address is required'),
   body('billing_address').notEmpty().withMessage('Billing address is required'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     // In a real app, you'd get this from JWT authentication
@@ -79,7 +88,8 @@ router.post('/', [
     if (error instanceof Error) {
       const statusCode = error.message.includes('Cart is empty') ? 400 :
                        error.message.includes('not available') ? 400 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -88,18 +98,24 @@ router.post('/', [
 // Get a specific order by ID
 router.get('/:id', [
   param('id').isUUID().withMessage('Invalid order ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'Order ID is required' });
+      return;
+    }
     const order = await orderService.getOrderById(id);
 
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      res.status(404).json({ error: 'Order not found' });
+      return;
     }
 
     res.json({
@@ -108,7 +124,8 @@ router.get('/:id', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -117,17 +134,22 @@ router.get('/:id', [
 // Cancel an order
 router.post('/:id/cancel', [
   param('id').isUUID().withMessage('Invalid order ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     // In a real app, you'd get this from JWT authentication
     const userId = req.headers['user-id'] as string || 'demo-user-id';
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'Order ID is required' });
+      return;
+    }
     const order = await orderService.cancelOrder(id, userId);
 
     res.json({
@@ -139,7 +161,8 @@ router.post('/:id/cancel', [
       const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('Unauthorized') ? 403 :
                        error.message.includes('cannot be cancelled') ? 400 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -153,19 +176,24 @@ router.get('/user/:userId', [
   query('sortBy').optional().isIn(['created_at', 'total_amount', 'status']).withMessage('Invalid sort field'),
   query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc'),
   query('status').optional().isIn(Object.values(OrderStatus)).withMessage('Invalid order status'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { userId } = req.params;
+    if (!userId) {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
     const options = {
       page: req.query.page ? parseInt(req.query.page as string) : 1,
       limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
-      sortBy: req.query.sortBy as string || 'created_at',
-      sortOrder: req.query.sortOrder as string || 'desc',
+      sortBy: (req.query.sortBy as 'created_at' | 'total_amount' | 'status') || 'created_at',
+      sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
       filters: {
         status: req.query.status as OrderStatus || undefined,
       },
@@ -179,14 +207,15 @@ router.get('/user/:userId', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Get order statistics
-router.get('/stats/summary', async (req: Request, res: Response) => {
+router.get('/stats/summary', async (req: Request, res: Response): Promise<void> => {
   try {
     // In a real app, you'd get this from JWT authentication and check if user is admin
     const userId = req.query.user_id as string || undefined;
@@ -199,7 +228,8 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }

@@ -1,12 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
-import { UserService, UpdateUserInput } from '../lib/user/UserService';
+import { UserService, UserQueryOptions, UserFilters } from '../lib/user/UserService';
+import { UpdateUserInput } from '../models/User';
 
 const router = Router();
 const userService = new UserService();
 
 // Get user profile
-router.get('/profile', async (req: Request, res: Response) => {
+router.get('/profile', async (req: Request, res: Response): Promise<void> => {
   try {
     // In a real app, you'd get this from JWT authentication
     const userId = req.headers['user-id'] as string || 'demo-user-id';
@@ -14,7 +15,8 @@ router.get('/profile', async (req: Request, res: Response) => {
     const profile = await userService.getUserProfile(userId);
 
     if (!profile) {
-      return res.status(404).json({ error: 'User profile not found' });
+      res.status(404).json({ error: 'User profile not found' });
+      return;
     }
 
     res.json({
@@ -23,7 +25,8 @@ router.get('/profile', async (req: Request, res: Response) => {
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -36,11 +39,12 @@ router.put('/profile', [
   body('email').optional().isEmail().withMessage('Invalid email address'),
   body('phone').optional().isString(),
   body('address').optional().isString(),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     // In a real app, you'd get this from JWT authentication
@@ -51,8 +55,7 @@ router.put('/profile', [
     if (req.body.first_name !== undefined) updateData.first_name = req.body.first_name;
     if (req.body.last_name !== undefined) updateData.last_name = req.body.last_name;
     if (req.body.email !== undefined) updateData.email = req.body.email;
-    if (req.body.phone !== undefined) updateData.phone = req.body.phone;
-    if (req.body.address !== undefined) updateData.address = req.body.address;
+    if (req.body.is_verified !== undefined) updateData.is_verified = req.body.is_verified;
 
     const user = await userService.updateUser(userId, updateData);
 
@@ -64,7 +67,8 @@ router.put('/profile', [
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('already registered') ? 409 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -74,11 +78,12 @@ router.put('/profile', [
 router.get('/orders', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     // In a real app, you'd get this from JWT authentication
@@ -95,14 +100,15 @@ router.get('/orders', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Get user purchase summary
-router.get('/purchase-summary', async (req: Request, res: Response) => {
+router.get('/purchase-summary', async (req: Request, res: Response): Promise<void> => {
   try {
     // In a real app, you'd get this from JWT authentication
     const userId = req.headers['user-id'] as string || 'demo-user-id';
@@ -115,7 +121,8 @@ router.get('/purchase-summary', async (req: Request, res: Response) => {
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -124,18 +131,24 @@ router.get('/purchase-summary', async (req: Request, res: Response) => {
 // Get user by ID (admin only)
 router.get('/:id', [
   param('id').isUUID().withMessage('Invalid user ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
     const user = await userService.getUserById(id);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
     res.json({
@@ -144,7 +157,8 @@ router.get('/:id', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -160,27 +174,42 @@ router.get('/', [
   query('search').optional().isString(),
   query('created_after').optional().isISO8601().withMessage('Created after must be a valid date'),
   query('created_before').optional().isISO8601().withMessage('Created before must be a valid date'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
-    const options = {
+    const baseOptions: UserQueryOptions = {
       page: req.query.page ? parseInt(req.query.page as string) : 1,
       limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
-      sortBy: req.query.sortBy as string || 'created_at',
-      sortOrder: req.query.sortOrder as string || 'desc',
-      filters: {
-        is_verified: req.query.is_verified !== undefined ? req.query.is_verified === 'true' : undefined,
-        search: req.query.search as string || undefined,
-        created_after: req.query.created_after ? new Date(req.query.created_after as string) : undefined,
-        created_before: req.query.created_before ? new Date(req.query.created_before as string) : undefined,
-      },
+      sortBy: (req.query.sortBy as 'created_at' | 'email' | 'first_name' | 'last_name') || 'created_at',
+      sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
     };
 
-    const result = await userService.getUsers(options);
+    // Build filters object only with defined values
+    const filters: UserFilters = {};
+    if (req.query.is_verified !== undefined) {
+      filters.is_verified = req.query.is_verified === 'true';
+    }
+    if (req.query.search) {
+      filters.search = req.query.search as string;
+    }
+    if (req.query.created_after) {
+      filters.created_after = new Date(req.query.created_after as string);
+    }
+    if (req.query.created_before) {
+      filters.created_before = new Date(req.query.created_before as string);
+    }
+
+    const cleanOptions: UserQueryOptions = {
+      ...baseOptions,
+      ...(Object.keys(filters).length > 0 ? { filters } : {}),
+    };
+
+    const result = await userService.getUsers(cleanOptions);
 
     res.json({
       message: 'Users retrieved successfully',
@@ -188,7 +217,8 @@ router.get('/', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -199,14 +229,19 @@ router.get('/search/:query', [
   param('query').isString().withMessage('Search query is required'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { query } = req.params;
+    if (!query) {
+      res.status(400).json({ error: 'Search query is required' });
+      return;
+    }
     const options = {
       page: req.query.page ? parseInt(req.query.page as string) : 1,
       limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
@@ -220,14 +255,15 @@ router.get('/search/:query', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Get user statistics (admin only)
-router.get('/stats/summary', async (req: Request, res: Response) => {
+router.get('/stats/summary', async (req: Request, res: Response): Promise<void> => {
   try {
     const stats = await userService.getUserStats();
 
@@ -237,7 +273,8 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -246,14 +283,19 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
 // Deactivate user (admin only)
 router.patch('/:id/deactivate', [
   param('id').isUUID().withMessage('Invalid user ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
     const user = await userService.deactivateUser(id);
 
     res.json({
@@ -263,7 +305,8 @@ router.patch('/:id/deactivate', [
   } catch (error) {
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -272,14 +315,19 @@ router.patch('/:id/deactivate', [
 // Reactivate user (admin only)
 router.patch('/:id/reactivate', [
   param('id').isUUID().withMessage('Invalid user ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
     const user = await userService.reactivateUser(id);
 
     res.json({
@@ -289,7 +337,8 @@ router.patch('/:id/reactivate', [
   } catch (error) {
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -299,14 +348,19 @@ router.patch('/:id/reactivate', [
 router.patch('/:id/verification', [
   param('id').isUUID().withMessage('Invalid user ID'),
   body('is_verified').isBoolean().withMessage('is_verified must be a boolean'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
     const { is_verified } = req.body;
 
     const user = await userService.updateUserVerification(id, is_verified);
@@ -318,7 +372,8 @@ router.patch('/:id/verification', [
   } catch (error) {
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }

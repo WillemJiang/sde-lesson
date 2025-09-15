@@ -38,7 +38,7 @@ export interface UserListResponse {
 }
 
 export class UserService {
-  async createUser(input: CreateUserInput): Promise<UserWithoutPassword> {
+  async createUser(input: CreateUserInput & { password_hash?: string }): Promise<UserWithoutPassword> {
     const existingUser = await prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -48,7 +48,13 @@ export class UserService {
     }
 
     const user = await prisma.user.create({
-      data: input,
+      data: {
+        email: input.email,
+        first_name: input.first_name,
+        last_name: input.last_name,
+        password_hash: input.password_hash || '',
+        verification_token: input.verification_token || null,
+      },
       select: userSelect,
     });
 

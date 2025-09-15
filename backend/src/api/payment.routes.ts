@@ -9,11 +9,12 @@ const paymentService = new PaymentService();
 router.post('/create-payment-intent', [
   body('order_id').isUUID().withMessage('Invalid order ID'),
   body('payment_method').isIn(['card', 'paypal', 'bank_transfer']).withMessage('Invalid payment method'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const input: CreatePaymentIntentInput = {
@@ -32,7 +33,8 @@ router.post('/create-payment-intent', [
       const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('already exists') ? 409 :
                        error.message.includes('payable state') ? 400 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -41,14 +43,19 @@ router.post('/create-payment-intent', [
 // Confirm payment
 router.post('/:id/confirm', [
   param('id').isUUID().withMessage('Invalid payment ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'Payment ID is required' });
+      return;
+    }
     const input: ConfirmPaymentInput = {
       payment_intent_id: id,
     };
@@ -62,7 +69,8 @@ router.post('/:id/confirm', [
   } catch (error) {
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -71,18 +79,24 @@ router.post('/:id/confirm', [
 // Get payment by ID
 router.get('/:id', [
   param('id').isUUID().withMessage('Invalid payment ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'Payment ID is required' });
+      return;
+    }
     const payment = await paymentService.getPaymentById(id);
 
     if (!payment) {
-      return res.status(404).json({ error: 'Payment not found' });
+      res.status(404).json({ error: 'Payment not found' });
+      return;
     }
 
     res.json({
@@ -91,7 +105,8 @@ router.get('/:id', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -100,18 +115,24 @@ router.get('/:id', [
 // Get payment by order ID
 router.get('/order/:orderId', [
   param('orderId').isUUID().withMessage('Invalid order ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { orderId } = req.params;
+    if (!orderId) {
+      res.status(400).json({ error: 'Order ID is required' });
+      return;
+    }
     const payment = await paymentService.getPaymentByOrderId(orderId);
 
     if (!payment) {
-      return res.status(404).json({ error: 'Payment not found for this order' });
+      res.status(404).json({ error: 'Payment not found for this order' });
+    return;
     }
 
     res.json({
@@ -120,7 +141,8 @@ router.get('/order/:orderId', [
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -130,14 +152,19 @@ router.get('/order/:orderId', [
 router.post('/:id/refund', [
   param('id').isUUID().withMessage('Invalid payment ID'),
   body('amount').optional().isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'Payment ID is required' });
+      return;
+    }
     const amount = req.body.amount ? parseFloat(req.body.amount) : undefined;
 
     const payment = await paymentService.refundPayment(id, amount);
@@ -150,7 +177,8 @@ router.post('/:id/refund', [
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('refundable state') ? 400 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -159,14 +187,19 @@ router.post('/:id/refund', [
 // Retry payment
 router.post('/:id/retry', [
   param('id').isUUID().withMessage('Invalid payment ID'),
-], async (req: Request, res: Response) => {
+], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+    return;
     }
 
     const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: 'Payment ID is required' });
+      return;
+    }
     const result = await paymentService.retryPayment(id);
 
     res.json({
@@ -177,14 +210,15 @@ router.post('/:id/retry', [
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('retryable state') ? 400 : 400;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Get payment statistics
-router.get('/stats/summary', async (req: Request, res: Response) => {
+router.get('/stats/summary', async (req: Request, res: Response): Promise<void> => {
   try {
     const stats = await paymentService.getPaymentStats();
 
@@ -194,19 +228,21 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     });
   } catch (error) {
     if (error instanceof Error) {
-      return res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Stripe webhook handler
-router.post('/webhook', async (req: Request, res: Response) => {
+router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
   try {
     const signature = req.headers['stripe-signature'] as string;
 
     if (!signature) {
-      return res.status(400).json({ error: 'Stripe signature is required' });
+      res.status(400).json({ error: 'Stripe signature is required' });
+    return;
     }
 
     await paymentService.handleWebhook(req.body, signature);
@@ -215,7 +251,8 @@ router.post('/webhook', async (req: Request, res: Response) => {
   } catch (error) {
     if (error instanceof Error) {
       const statusCode = error.message.includes('signature verification') ? 400 : 500;
-      return res.status(statusCode).json({ error: error.message });
+      res.status(statusCode).json({ error: error.message });
+      return;
     }
     res.status(500).json({ error: 'Internal server error' });
   }

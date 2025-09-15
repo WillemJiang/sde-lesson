@@ -127,7 +127,7 @@ apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/users', userRoutes);
 
 // 404 handler for API routes
-apiRouter.use('*', (req, res) => {
+apiRouter.use((req, res) => {
   res.status(404).json({
     error: 'Endpoint not found',
     message: `The requested endpoint ${req.originalUrl} does not exist`,
