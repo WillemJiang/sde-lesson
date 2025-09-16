@@ -1,6 +1,19 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
+
+// Declare test utilities globally
+declare global {
+  var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
+    generateUniqueEmail: (prefix: string) => string;
+    generateUniqueSKU: (prefix: string) => string;
+    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+    validateToken: (token: string) => any;
+  };
+}
 
 describe('DELETE /cart/items/{id}', () => {
   let authToken: string;
@@ -10,64 +23,39 @@ describe('DELETE /cart/items/{id}', () => {
   let cartItemIdToKeep: string;
 
   beforeEach(async () => {
-    // Create regular user
-    const userData = {
-      email: 'cart-delete-test@example.com',
-      password: 'Password123!',
+    // Create regular user using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const userResult = await global.testUtils.createTestUserWithToken({
+      email: global.testUtils.generateUniqueEmail('cart-delete'),
+      password_hash: hashedPassword,
       first_name: 'John',
-      last_name: 'Doe'
-    };
+      last_name: 'Doe',
+      is_verified: true
+    });
+    authToken = userResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData);
-
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
-
-    authToken = loginResponse.body.token;
-
-    // Create admin user
-    const adminData = {
-      email: 'admin-cart-delete@example.com',
-      password: 'Password123!',
+    // Create admin user using test utilities
+    const adminResult = await global.testUtils.createTestUserWithToken({
+      email: global.testUtils.generateUniqueEmail('admin-cart-delete'),
+      password_hash: hashedPassword,
       first_name: 'Admin',
-      last_name: 'User'
-    };
+      last_name: 'User',
+      is_verified: true,
+      role: 'ADMIN'
+    });
+    adminAuthToken = adminResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(adminData);
-
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
-
-    adminAuthToken = adminLoginResponse.body.token;
-
-    // Create test product
+    // Create test product using test utilities
     const productData = {
       name: 'Test Product for Cart Delete',
       description: 'A test product for cart item deletion',
       price: 69.99,
       stock_quantity: 100,
-      sku: 'CART-DELETE-001',
+      sku: global.testUtils.generateUniqueSKU('CART-DELETE'),
       category: 'electronics'
     };
 
-    const createResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(productData);
-
-    productId = createResponse.body.data.id;
+    productId = (await global.testUtils.createProduct(productData)).id;
 
     // Add items to cart for testing
     const firstItemData = {
@@ -162,7 +150,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(newItemData);
 
-    const tempCartItemId = createResponse.body.data.id;
+    const tempCartItemId = createResponse.body.data.items[0].id;
 
     // Delete the cart item
     const response = await request(app)
@@ -175,9 +163,28 @@ describe('DELETE /cart/items/{id}', () => {
   });
 
   it('should handle deletion of already deleted item', async () => {
+    // Create a new item specifically for this test
+    const newItemData = {
+      product_id: productId,
+      quantity: 1
+    };
+
+    const createResponse = await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(newItemData);
+
+    const tempCartItemId = createResponse.body.data.items[0].id;
+
+    // Delete the item first time
+    await request(app)
+      .delete(`/api/v1/cart/items/${tempCartItemId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(204);
+
     // Try to delete the same item again
     await request(app)
-      .delete(`/api/v1/cart/items/${cartItemIdToDelete}`)
+      .delete(`/api/v1/cart/items/${tempCartItemId}`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(404);
   });
@@ -193,14 +200,29 @@ describe('DELETE /cart/items/{id}', () => {
   });
 
   it('should update cart totals correctly after item deletion', async () => {
-    // Get cart totals before deletion
-    const cartBeforeDelete = await request(app)
+    // Create a new user for this test to avoid conflicts
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const testUserResult = await global.testUtils.createTestUserWithToken({
+      email: global.testUtils.generateUniqueEmail('cart-delete-totals'),
+      password_hash: hashedPassword,
+      first_name: 'Test',
+      last_name: 'User',
+      is_verified: true
+    });
+    const testAuthToken = testUserResult.token;
+
+    // Get cart totals before adding the item (should be empty)
+    const cartBeforeAdd = await request(app)
       .get('/api/v1/cart')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .expect(200);
 
-    const beforeTotalItems = cartBeforeDelete.body.data.total_items;
-    const beforeTotalAmount = cartBeforeDelete.body.data.total_amount;
+    const beforeTotalItems = cartBeforeAdd.body.data.total_items;
+    const beforeTotalAmount = cartBeforeAdd.body.data.total_amount;
+
+    // Verify cart is initially empty
+    expect(beforeTotalItems).toBe(0);
+    expect(beforeTotalAmount).toBe(0);
 
     // Create a new item to delete
     const newItemData = {
@@ -210,61 +232,55 @@ describe('DELETE /cart/items/{id}', () => {
 
     const createResponse = await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .send(newItemData);
 
-    const tempCartItemId = createResponse.body.data.id;
+    const tempCartItemId = createResponse.body.data.items[0].id;
 
     // Get cart after adding item
     const cartAfterAdd = await request(app)
       .get('/api/v1/cart')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .expect(200);
 
     const afterAddTotalItems = cartAfterAdd.body.data.total_items;
     const afterAddTotalAmount = cartAfterAdd.body.data.total_amount;
 
+    // Verify the item was added
+    expect(afterAddTotalItems).toBe(3);
+    expect(afterAddTotalAmount).toBeGreaterThan(0);
+
     // Delete the item
     await request(app)
       .delete(`/api/v1/cart/items/${tempCartItemId}`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .expect(204);
 
     // Get cart after deletion
     const cartAfterDelete = await request(app)
       .get('/api/v1/cart')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .expect(200);
 
     const afterDeleteTotalItems = cartAfterDelete.body.data.total_items;
     const afterDeleteTotalAmount = cartAfterDelete.body.data.total_amount;
 
-    // Verify totals returned to original values
-    expect(afterDeleteTotalItems).toBe(beforeTotalItems);
-    expect(afterDeleteTotalAmount).toBe(beforeTotalAmount);
+    // Verify totals returned to original values (empty)
+    expect(afterDeleteTotalItems).toBe(0);
+    expect(afterDeleteTotalAmount).toBe(0);
   });
 
   it('should handle deletion of last item in cart (empty cart)', async () => {
     // Create a new user with only one cart item
-    const newUserData = {
-      email: 'single-item-user@example.com',
-      password: 'Password123!',
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const newUserResult = await global.testUtils.createTestUserWithToken({
+      email: global.testUtils.generateUniqueEmail('single-item-user'),
+      password_hash: hashedPassword,
       first_name: 'Single',
-      last_name: 'User'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(newUserData);
-
-    const newUserLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: newUserData.email,
-        password: newUserData.password
-      });
-
-    const newUserAuthToken = newUserLoginResponse.body.token;
+      last_name: 'User',
+      is_verified: true
+    });
+    const newUserAuthToken = newUserResult.token;
 
     // Add single item to cart
     const singleItemData = {
@@ -277,7 +293,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${newUserAuthToken}`)
       .send(singleItemData);
 
-    const singleCartItemId = singleItemResponse.body.data.id;
+    const singleCartItemId = singleItemResponse.body.data.items[0].id;
 
     // Verify cart has one item
     const cartBeforeDelete = await request(app)
@@ -303,7 +319,7 @@ describe('DELETE /cart/items/{id}', () => {
     expect(cartAfterDelete.body.data.items).toHaveLength(0);
     expect(cartAfterDelete.body.data.total_items).toBe(0);
     expect(cartAfterDelete.body.data.total_amount).toBe(0);
-    expect(cartAfterDelete.body).toHaveProperty('id'); // Cart should still exist
+    expect(cartAfterDelete.body.data).toHaveProperty('id'); // Cart should still exist
   });
 
   it('should handle malformed cart item ID correctly', async () => {
@@ -312,6 +328,6 @@ describe('DELETE /cart/items/{id}', () => {
     await request(app)
       .delete(`/api/v1/cart/items/${malformedId}`)
       .set('Authorization', `Bearer ${authToken}`)
-      .expect(404);
+      .expect(400);
   });
 });

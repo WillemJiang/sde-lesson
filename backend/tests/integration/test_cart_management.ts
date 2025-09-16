@@ -1,6 +1,19 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
+
+// Declare test utilities globally
+declare global {
+  var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
+    generateUniqueEmail: (prefix: string) => string;
+    generateUniqueSKU: (prefix: string) => string;
+    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+    validateToken: (token: string) => any;
+  };
+}
 
 describe('Shopping Cart Management Integration', () => {
   let authToken: string;
@@ -12,56 +25,35 @@ describe('Shopping Cart Management Integration', () => {
   let cartItemId2: string;
 
   beforeAll(async () => {
-    // Register and login first test user
-    const user1Data = {
-      email: 'cart-test1@example.com',
-      password: 'Password123!',
+    // Create first test user using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const user1Result = await global.testUtils.createTestUserWithToken({
+      email: global.testUtils.generateUniqueEmail('cart-integration-1'),
+      password_hash: hashedPassword,
       first_name: 'Cart',
-      last_name: 'User1'
-    };
+      last_name: 'User1',
+      is_verified: true
+    });
+    authToken = user1Result.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(user1Data);
-
-    const login1Response = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: 'cart-test1@example.com',
-        password: 'Password123!'
-      });
-
-    authToken = login1Response.body.token;
-
-    // Register and login second test user
-    const user2Data = {
-      email: 'cart-test2@example.com',
-      password: 'Password123!',
+    // Create second test user using test utilities
+    const user2Result = await global.testUtils.createTestUserWithToken({
+      email: global.testUtils.generateUniqueEmail('cart-integration-2'),
+      password_hash: hashedPassword,
       first_name: 'Cart',
-      last_name: 'User2'
-    };
+      last_name: 'User2',
+      is_verified: true
+    });
+    authToken2 = user2Result.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(user2Data);
-
-    const login2Response = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: 'cart-test2@example.com',
-        password: 'Password123!'
-      });
-
-    authToken2 = login2Response.body.token;
-
-    // Create test products
+    // Create test products using test utilities
     const product1 = {
       name: 'Test Product 1',
       description: 'First test product',
       price: 25.99,
       stock_quantity: 100,
       category: 'Test',
-      sku: 'TP-001'
+      sku: global.testUtils.generateUniqueSKU('TP-001')
     };
 
     const product2 = {
@@ -70,21 +62,11 @@ describe('Shopping Cart Management Integration', () => {
       price: 35.99,
       stock_quantity: 50,
       category: 'Test',
-      sku: 'TP-002'
+      sku: global.testUtils.generateUniqueSKU('TP-002')
     };
 
-    const response1 = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send(product1);
-
-    const response2 = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send(product2);
-
-    productId1 = response1.body.id;
-    productId2 = response2.body.id;
+    productId1 = (await global.testUtils.createProduct(product1)).id;
+    productId2 = (await global.testUtils.createProduct(product2)).id;
   });
 
   it('should create a new shopping cart', async () => {
@@ -93,13 +75,13 @@ describe('Shopping Cart Management Integration', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('items');
-    expect(response.body).toHaveProperty('total_amount', 0);
-    expect(Array.isArray(response.body.items)).toBe(true);
-    expect(response.body.items.length).toBe(0);
+    expect(response.body.data).toHaveProperty('id');
+    expect(response.body.data).toHaveProperty('items');
+    expect(response.body.data).toHaveProperty('total_amount', 0);
+    expect(Array.isArray(response.body.data.items)).toBe(true);
+    expect(response.body.data.items.length).toBe(0);
 
-    cartId = response.body.id;
+    cartId = response.body.data.id;
   });
 
   it('should add item to shopping cart', async () => {
@@ -114,12 +96,13 @@ describe('Shopping Cart Management Integration', () => {
       .send(cartItem)
       .expect(201);
 
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('product_id', productId1);
-    expect(response.body).toHaveProperty('quantity', 2);
-    expect(response.body).toHaveProperty('price', 25.99);
+    const addedItem = response.body.data.items[0];
+    expect(addedItem).toHaveProperty('id');
+    expect(addedItem).toHaveProperty('product_id', productId1);
+    expect(addedItem).toHaveProperty('quantity', 2);
+    expect(addedItem).toHaveProperty('price_at_time', 25.99);
 
-    cartItemId1 = response.body.id;
+    cartItemId1 = addedItem.id;
   });
 
   it('should retrieve updated shopping cart with items', async () => {
@@ -128,11 +111,11 @@ describe('Shopping Cart Management Integration', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('items');
-    expect(response.body.items.length).toBe(1);
-    expect(response.body.items[0]).toHaveProperty('id', cartItemId1);
-    expect(response.body.items[0]).toHaveProperty('quantity', 2);
-    expect(response.body).toHaveProperty('total_amount', 51.98);
+    expect(response.body.data).toHaveProperty('items');
+    expect(response.body.data.items.length).toBe(1);
+    expect(response.body.data.items[0]).toHaveProperty('id', cartItemId1);
+    expect(response.body.data.items[0]).toHaveProperty('quantity', 2);
+    expect(response.body.data).toHaveProperty('total_amount', 51.98);
   });
 
   it('should add multiple items to shopping cart', async () => {
@@ -147,11 +130,12 @@ describe('Shopping Cart Management Integration', () => {
       .send(cartItem)
       .expect(201);
 
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('product_id', productId2);
-    expect(response.body).toHaveProperty('quantity', 1);
+    const addedItem = response.body.data.items.find((item: any) => item.product_id === productId2);
+    expect(addedItem).toHaveProperty('id');
+    expect(addedItem).toHaveProperty('product_id', productId2);
+    expect(addedItem).toHaveProperty('quantity', 1);
 
-    cartItemId2 = response.body.id;
+    cartItemId2 = addedItem.id;
   });
 
   it('should calculate correct total amount with multiple items', async () => {
@@ -160,9 +144,9 @@ describe('Shopping Cart Management Integration', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('items');
-    expect(response.body.items.length).toBe(2);
-    expect(response.body).toHaveProperty('total_amount', 87.97); // (25.99 * 2) + 35.99
+    expect(response.body.data).toHaveProperty('items');
+    expect(response.body.data.items.length).toBe(2);
+    expect(response.body.data).toHaveProperty('total_amount', 87.97); // (25.99 * 2) + 35.99
   });
 
   it('should update cart item quantity', async () => {
@@ -176,8 +160,9 @@ describe('Shopping Cart Management Integration', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id', cartItemId1);
-    expect(response.body).toHaveProperty('quantity', 3);
+    const updatedItem = response.body.data.items.find((item: any) => item.id === cartItemId1);
+    expect(updatedItem).toHaveProperty('id', cartItemId1);
+    expect(updatedItem).toHaveProperty('quantity', 3);
   });
 
   it('should recalculate total after quantity update', async () => {
@@ -186,7 +171,7 @@ describe('Shopping Cart Management Integration', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('total_amount', 113.96); // (25.99 * 3) + 35.99
+    expect(response.body.data).toHaveProperty('total_amount', 113.96); // (25.99 * 3) + 35.99
   });
 
   it('should prevent adding item with insufficient stock', async () => {
@@ -209,9 +194,9 @@ describe('Shopping Cart Management Integration', () => {
       .set('Authorization', `Bearer ${authToken2}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('items');
-    expect(response.body.items.length).toBe(0);
-    expect(response.body).toHaveProperty('total_amount', 0);
+    expect(response.body.data).toHaveProperty('items');
+    expect(response.body.data.items.length).toBe(0);
+    expect(response.body.data).toHaveProperty('total_amount', 0);
   });
 
   it('should remove item from shopping cart', async () => {
@@ -225,9 +210,9 @@ describe('Shopping Cart Management Integration', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('items');
-    expect(response.body.items.length).toBe(1);
-    expect(response.body).toHaveProperty('total_amount', 77.97); // 25.99 * 3
+    expect(response.body.data).toHaveProperty('items');
+    expect(response.body.data.items.length).toBe(1);
+    expect(response.body.data).toHaveProperty('total_amount', 77.97); // 25.99 * 3
   });
 
   it('should handle removal of non-existent cart item', async () => {

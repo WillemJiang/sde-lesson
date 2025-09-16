@@ -1,6 +1,19 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
+
+// Declare test utilities globally
+declare global {
+  var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
+    generateUniqueEmail: (prefix: string) => string;
+    generateUniqueSKU: (prefix: string) => string;
+    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+    validateToken: (token: string) => any;
+  };
+}
 
 describe('POST /cart/items', () => {
   let authToken: string;
@@ -9,64 +22,39 @@ describe('POST /cart/items', () => {
   let lowStockProductId: string;
 
   beforeEach(async () => {
-    // Create regular user
-    const userData = {
-      email: 'cart-items-test@example.com',
-      password: 'Password123!',
+    // Create regular user using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const userResult = await global.testUtils.createTestUserWithToken({
+      email: global.testUtils.generateUniqueEmail('cart-items-post'),
+      password_hash: hashedPassword,
       first_name: 'John',
-      last_name: 'Doe'
-    };
+      last_name: 'Doe',
+      is_verified: true
+    });
+    authToken = userResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData);
-
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
-
-    authToken = loginResponse.body.token;
-
-    // Create admin user
-    const adminData = {
-      email: 'admin-cart-items@example.com',
-      password: 'Password123!',
+    // Create admin user using test utilities
+    const adminResult = await global.testUtils.createTestUserWithToken({
+      email: global.testUtils.generateUniqueEmail('admin-cart-items-post'),
+      password_hash: hashedPassword,
       first_name: 'Admin',
-      last_name: 'User'
-    };
+      last_name: 'User',
+      is_verified: true,
+      role: 'ADMIN'
+    });
+    adminAuthToken = adminResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(adminData);
-
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
-
-    adminAuthToken = adminLoginResponse.body.token;
-
-    // Create test products
+    // Create test products using test utilities
     const productData = {
       name: 'Test Product for Cart Items',
       description: 'A test product for cart item operations',
       price: 79.99,
       stock_quantity: 100,
-      sku: 'CART-ITEMS-001',
+      sku: global.testUtils.generateUniqueSKU('CART-ITEMS'),
       category: 'electronics'
     };
 
-    const createResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(productData);
-
-    productId = createResponse.body.data.id;
+    productId = (await global.testUtils.createProduct(productData)).id;
 
     // Create a product with low stock for testing insufficient stock scenarios
     const lowStockProductData = {
@@ -74,16 +62,11 @@ describe('POST /cart/items', () => {
       description: 'Product with limited stock',
       price: 29.99,
       stock_quantity: 5,
-      sku: 'LOW-STOCK-001',
+      sku: global.testUtils.generateUniqueSKU('LOW-STOCK'),
       category: 'books'
     };
 
-    const lowStockCreateResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(lowStockProductData);
-
-    lowStockProductId = lowStockCreateResponse.body.data.id;
+    lowStockProductId = (await global.testUtils.createProduct(lowStockProductData)).id;
   });
 
   it('should add item to cart successfully', async () => {

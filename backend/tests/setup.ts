@@ -8,6 +8,7 @@ let prisma: PrismaClient;
 
 // Store test users and tokens to prevent deletion during test runs
 const testUserIds = new Set<string>();
+const testProductIds = new Set<string>();
 
 beforeAll(async () => {
   // Disable Prisma query logs for cleaner test output
@@ -26,40 +27,71 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // Clean up database before each test, but preserve test users
+  // Clean up database before each test, but preserve test users and products
   try {
     // Wait for any pending operations to complete
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    // Delete in reverse order to handle foreign key constraints
-    // Start with dependent records
-    await prisma.payment.deleteMany();
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Use raw SQL to disable foreign key constraints and clean up
+    if (process.env.DATABASE_URL?.includes('sqlite')) {
+      // SQLite approach
+      await prisma.$executeRaw`PRAGMA foreign_keys = OFF;`;
 
-    await prisma.orderItem.deleteMany();
-    await new Promise(resolve => setTimeout(resolve, 50));
+      await prisma.$executeRaw`DELETE FROM Payment;`;
+      await prisma.$executeRaw`DELETE FROM OrderItem;`;
+      await prisma.$executeRaw`DELETE FROM "Order";`;
+      await prisma.$executeRaw`DELETE FROM CartItem;`;
+      await prisma.$executeRaw`DELETE FROM ShoppingCart;`;
 
-    await prisma.order.deleteMany();
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    await prisma.cartItem.deleteMany();
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    await prisma.shoppingCart.deleteMany();
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    await prisma.product.deleteMany();
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    // Only delete users that are not test users
-    await prisma.user.deleteMany({
-      where: {
-        id: {
-          notIn: Array.from(testUserIds)
-        }
+      // Delete non-test products
+      if (testProductIds.size > 0) {
+        const productIds = Array.from(testProductIds);
+        const placeholders = productIds.map(() => '?').join(',');
+        await prisma.$executeRawUnsafe(`DELETE FROM Product WHERE id NOT IN (${placeholders})`, ...productIds);
+      } else {
+        await prisma.$executeRaw`DELETE FROM Product;`;
       }
-    });
-    await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Delete non-test users
+      if (testUserIds.size > 0) {
+        const userIds = Array.from(testUserIds);
+        const placeholders = userIds.map(() => '?').join(',');
+        await prisma.$executeRawUnsafe(`DELETE FROM "User" WHERE id NOT IN (${placeholders})`, ...userIds);
+      } else {
+        await prisma.$executeRaw`DELETE FROM "User";`;
+      }
+
+      await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
+    } else {
+      // PostgreSQL approach - just use regular Prisma operations with proper ordering
+      await prisma.payment.deleteMany();
+      await prisma.orderItem.deleteMany();
+      await prisma.order.deleteMany();
+      await prisma.cartItem.deleteMany();
+      await prisma.shoppingCart.deleteMany();
+
+      // Only delete products that are not test products
+      if (testProductIds.size > 0) {
+        await prisma.product.deleteMany({
+          where: {
+            id: {
+              notIn: Array.from(testProductIds)
+            }
+          }
+        });
+      } else {
+        await prisma.product.deleteMany();
+      }
+
+      // Only delete users that are not test users
+      await prisma.user.deleteMany({
+        where: {
+          id: {
+            notIn: Array.from(testUserIds)
+          }
+        }
+      });
+    }
 
     // Final delay to ensure all cleanup is complete
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -70,8 +102,56 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  // Clean up all test users after all tests complete
+  // Clean up all test users and products after all tests complete
   try {
+    // First delete all dependent data for test users
+    await prisma.payment.deleteMany({
+      where: {
+        order: {
+          user_id: {
+            in: Array.from(testUserIds)
+          }
+        }
+      }
+    });
+
+    await prisma.orderItem.deleteMany({
+      where: {
+        order: {
+          user_id: {
+            in: Array.from(testUserIds)
+          }
+        }
+      }
+    });
+
+    await prisma.order.deleteMany({
+      where: {
+        user_id: {
+          in: Array.from(testUserIds)
+        }
+      }
+    });
+
+    await prisma.cartItem.deleteMany({
+      where: {
+        cart: {
+          user_id: {
+            in: Array.from(testUserIds)
+          }
+        }
+      }
+    });
+
+    await prisma.shoppingCart.deleteMany({
+      where: {
+        user_id: {
+          in: Array.from(testUserIds)
+        }
+      }
+    });
+
+    // Now delete the test users
     await prisma.user.deleteMany({
       where: {
         id: {
@@ -80,6 +160,16 @@ afterAll(async () => {
       }
     });
     testUserIds.clear();
+
+    // Delete test products
+    await prisma.product.deleteMany({
+      where: {
+        id: {
+          in: Array.from(testProductIds)
+        }
+      }
+    });
+    testProductIds.clear();
   } catch (error) {
     console.log('Final cleanup failed:', error);
   }
@@ -118,7 +208,7 @@ global.testUtils = {
   },
 
   createProduct: async (productData: any) => {
-    return await prisma.product.create({
+    const product = await prisma.product.create({
       data: {
         name: productData.name || 'Test Product',
         description: productData.description || 'Test Description',
@@ -129,6 +219,10 @@ global.testUtils = {
         is_active: productData.is_active ?? true,
       },
     });
+
+    // Register this product as a test product to prevent deletion
+    testProductIds.add(product.id);
+    return product;
   },
 
   generateUniqueEmail: (prefix: string): string => {

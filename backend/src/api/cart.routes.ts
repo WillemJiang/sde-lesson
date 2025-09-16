@@ -109,8 +109,19 @@ router.post('/items', [
 
 // Update cart item quantity
 router.put('/items/:id', [
-  param('id').isUUID().withMessage('Invalid cart item ID format'),
-  body('quantity').isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
+  param('id').custom((value) => {
+    // Allow our custom ID format (letters followed by letters/numbers)
+    if (/^[a-z]+[a-z0-9]+$/.test(value)) {
+      return true;
+    }
+    // Allow valid UUID format
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)) {
+      return true;
+    }
+    // Reject invalid format
+    throw new Error('Invalid cart item ID format');
+  }),
+  body('quantity').isInt({ min: 1 }).withMessage('Quantity must be a positive integer'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -154,7 +165,18 @@ router.put('/items/:id', [
 
 // Remove item from cart
 router.delete('/items/:id', [
-  param('id').isUUID().withMessage('Invalid cart item ID format'),
+  param('id').custom((value) => {
+    // Allow our custom ID format (letters followed by letters/numbers)
+    if (/^[a-z]+[a-z0-9]+$/.test(value)) {
+      return true;
+    }
+    // Allow valid UUID format
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)) {
+      return true;
+    }
+    // Reject invalid format
+    throw new Error('Invalid cart item ID format');
+  }),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
