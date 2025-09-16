@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { prisma } from '../../config/database';
 import { Payment, PaymentStatus } from '../../models';
+import { isAdminEmail } from '../../middleware/admin';
 
 export interface CreatePaymentIntentInput {
   order_id: string;
@@ -22,14 +23,54 @@ export class PaymentService {
   private stripe: Stripe;
 
   constructor() {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2025-08-27.basil' as any,
-    });
+    // Use mock Stripe in test environment
+    if (process.env.NODE_ENV === 'test') {
+      this.stripe = {
+        paymentIntents: {
+          create: async (params: any) => ({
+            id: `pi_test_${Math.random().toString(36).substring(7)}`,
+            client_secret: `pi_test_${Math.random().toString(36).substring(7)}_secret_${Math.random().toString(36).substring(7)}`,
+            amount: params.amount,
+            currency: params.currency,
+            metadata: params.metadata,
+            status: 'requires_payment_method'
+          }),
+          retrieve: async (id: string) => ({
+            id: id,
+            status: 'succeeded',
+            amount: 10000,
+            currency: 'usd'
+          })
+        },
+        refunds: {
+          create: async (params: any) => ({
+            id: `re_test_${Math.random().toString(36).substring(7)}`,
+            amount: params.amount,
+            status: 'succeeded'
+          })
+        },
+        webhooks: {
+          constructEvent: (payload: any, signature: any, secret: any) => ({
+            type: 'payment_intent.succeeded',
+            data: {
+              object: {
+                id: `pi_test_${Math.random().toString(36).substring(7)}`,
+                status: 'succeeded',
+                amount: 10000,
+                currency: 'usd'
+              }
+            }
+          })
+        }
+      } as any;
+    } else {
+      this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: '2025-08-27.basil' as any,
+      });
+    }
   }
 
-  async createPaymentIntent(input: CreatePaymentIntentInput): Promise<PaymentIntentResponse> {
-    console.log('PaymentService.createPaymentIntent called with input:', input);
-
+  async createPaymentIntent(input: CreatePaymentIntentInput, userId?: string, userEmail?: string): Promise<PaymentIntentResponse> {
     const order = await prisma.order.findUnique({
       where: { id: input.order_id },
       include: {
@@ -37,9 +78,14 @@ export class PaymentService {
       },
     });
 
-    console.log('Found order:', order);
-
+  
     if (!order) {
+      throw new Error('Order not found');
+    }
+
+    // Check if the order belongs to the user (unless admin)
+    const isAdmin = userEmail && isAdminEmail(userEmail);
+    if (userId && order.user_id !== userId && !isAdmin) {
       throw new Error('Order not found');
     }
 
@@ -52,7 +98,6 @@ export class PaymentService {
     }
 
     try {
-      console.log('Creating Stripe payment intent for amount:', order.total_amount);
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: Math.round(order.total_amount * 100),
         currency: 'usd',
@@ -78,7 +123,7 @@ export class PaymentService {
         currency: 'usd',
       };
     } catch (error) {
-      throw new Error('Failed to create payment intent');
+      throw new Error(`Failed to create payment intent: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

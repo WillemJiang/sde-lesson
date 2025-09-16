@@ -40,7 +40,11 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       return;
     }
 
-    req.user = decoded;
+    // Attach both decoded token and user email to request
+    req.user = {
+      ...decoded,
+      email: user.email
+    };
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid or expired token' });
@@ -62,7 +66,10 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
       });
 
       if (user) {
-        req.user = decoded;
+        req.user = {
+          ...decoded,
+          email: user.email
+        };
       }
     } catch (error) {
       // Token is invalid, but we continue without authentication

@@ -1,15 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { PaymentService, CreatePaymentIntentInput, ConfirmPaymentInput } from '../lib/payment/PaymentService';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 const paymentService = new PaymentService();
 
 // Create payment intent
 router.post('/create-payment-intent', [
-  body('order_id').matches(/^[a-z0-9]+$/).withMessage('Invalid order ID'),
+  body('order_id').isString().withMessage('Order ID is required').isLength({ min: 1 }).withMessage('Order ID cannot be empty'),
   body('payment_method').optional().isIn(['card', 'paypal', 'bank_transfer']).withMessage('Invalid payment method'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -22,9 +23,9 @@ router.post('/create-payment-intent', [
       payment_method: req.body.payment_method || 'card',
     };
 
-    console.log('Creating payment intent with input:', input);
-    const result = await paymentService.createPaymentIntent(input);
-    console.log('Payment intent created successfully:', result);
+    const userId = req.user?.userId;
+    const userEmail = req.user?.email;
+    const result = await paymentService.createPaymentIntent(input, userId, userEmail);
 
     res.status(200).json({
       client_secret: result.client_secret,
@@ -44,8 +45,8 @@ router.post('/create-payment-intent', [
 
 // Confirm payment
 router.post('/:id/confirm', [
-  param('id').isUUID().withMessage('Invalid payment ID'),
-], async (req: Request, res: Response): Promise<void> => {
+  param('id').isString().withMessage('Payment ID is required').isLength({ min: 1 }).withMessage('Payment ID cannot be empty'),
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -80,8 +81,8 @@ router.post('/:id/confirm', [
 
 // Get payment by ID
 router.get('/:id', [
-  param('id').isUUID().withMessage('Invalid payment ID'),
-], async (req: Request, res: Response): Promise<void> => {
+  param('id').isString().withMessage('Payment ID is required').isLength({ min: 1 }).withMessage('Payment ID cannot be empty'),
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -116,8 +117,8 @@ router.get('/:id', [
 
 // Get payment by order ID
 router.get('/order/:orderId', [
-  param('orderId').isUUID().withMessage('Invalid order ID'),
-], async (req: Request, res: Response): Promise<void> => {
+  param('orderId').isString().withMessage('Order ID is required').isLength({ min: 1 }).withMessage('Order ID cannot be empty'),
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -152,9 +153,9 @@ router.get('/order/:orderId', [
 
 // Refund payment
 router.post('/:id/refund', [
-  param('id').isUUID().withMessage('Invalid payment ID'),
+  param('id').isString().withMessage('Payment ID is required').isLength({ min: 1 }).withMessage('Payment ID cannot be empty'),
   body('amount').optional().isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -188,8 +189,8 @@ router.post('/:id/refund', [
 
 // Retry payment
 router.post('/:id/retry', [
-  param('id').isUUID().withMessage('Invalid payment ID'),
-], async (req: Request, res: Response): Promise<void> => {
+  param('id').isString().withMessage('Payment ID is required').isLength({ min: 1 }).withMessage('Payment ID cannot be empty'),
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -220,7 +221,7 @@ router.post('/:id/retry', [
 });
 
 // Get payment statistics
-router.get('/stats/summary', async (req: Request, res: Response): Promise<void> => {
+router.get('/stats/summary', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const stats = await paymentService.getPaymentStats();
 

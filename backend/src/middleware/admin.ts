@@ -21,7 +21,7 @@ const ADMIN_EMAILS = [
 ];
 
 // Helper function to check if an email is an admin
-function isAdminEmail(email: string): boolean {
+export function isAdminEmail(email: string): boolean {
   // Check if email is in the static list
   if (ADMIN_EMAILS.includes(email)) {
     return true;

@@ -14,7 +14,7 @@ router.get('/', [
   query('sortBy').optional().isIn(['created_at', 'total_amount', 'status']).withMessage('Invalid sort field'),
   query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc'),
   query('status').optional().isIn(Object.values(OrderStatus)).withMessage('Invalid order status'),
-  query('user_id').optional().isUUID().withMessage('Invalid user ID'),
+  query('user_id').optional().isString().withMessage('User ID must be a string').isLength({ min: 1 }).withMessage('User ID cannot be empty'),
   query('start_date').optional().isISO8601().withMessage('Start date must be a valid date'),
   query('end_date').optional().isISO8601().withMessage('End date must be a valid date'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
@@ -120,7 +120,7 @@ router.post('/', [
 
 // Get a specific order by ID
 router.get('/:id', [
-  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid order ID'),
+  param('id').isString().withMessage('Order ID is required').isLength({ min: 1 }).withMessage('Order ID cannot be empty'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -156,7 +156,7 @@ router.get('/:id', [
 
 // Cancel an order
 router.post('/:id/cancel', [
-  param('id').isUUID().withMessage('Invalid order ID'),
+  param('id').isString().withMessage('Order ID is required').isLength({ min: 1 }).withMessage('Order ID cannot be empty'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -197,7 +197,7 @@ router.post('/:id/cancel', [
 
 // Get user's orders
 router.get('/user/:userId', [
-  param('userId').isUUID().withMessage('Invalid user ID'),
+  param('userId').isString().withMessage('User ID is required').isLength({ min: 1 }).withMessage('User ID cannot be empty'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
   query('sortBy').optional().isIn(['created_at', 'total_amount', 'status']).withMessage('Invalid sort field'),

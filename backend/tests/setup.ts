@@ -63,34 +63,78 @@ beforeEach(async () => {
 
       await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
     } else {
-      // PostgreSQL approach - just use regular Prisma operations with proper ordering
-      await prisma.payment.deleteMany();
-      await prisma.orderItem.deleteMany();
-      await prisma.order.deleteMany();
-      await prisma.cartItem.deleteMany();
-      await prisma.shoppingCart.deleteMany();
+      // PostgreSQL approach - use proper deletion order to respect foreign key constraints
+      try {
+        // Delete in reverse order of dependencies to respect foreign key constraints
+        await prisma.payment.deleteMany();
+        await prisma.orderItem.deleteMany();
+        await prisma.order.deleteMany();
+        await prisma.cartItem.deleteMany();
+        await prisma.shoppingCart.deleteMany();
 
-      // Only delete products that are not test products
-      if (testProductIds.size > 0) {
-        await prisma.product.deleteMany({
-          where: {
-            id: {
-              notIn: Array.from(testProductIds)
+        // Only delete products that are not test products
+        if (testProductIds.size > 0) {
+          await prisma.product.deleteMany({
+            where: {
+              id: {
+                notIn: Array.from(testProductIds)
+              }
             }
-          }
-        });
-      } else {
-        await prisma.product.deleteMany();
-      }
-
-      // Only delete users that are not test users
-      await prisma.user.deleteMany({
-        where: {
-          id: {
-            notIn: Array.from(testUserIds)
-          }
+          });
+        } else {
+          await prisma.product.deleteMany();
         }
-      });
+
+        // Only delete users that are not test users
+        if (testUserIds.size > 0) {
+          await prisma.user.deleteMany({
+            where: {
+              id: {
+                notIn: Array.from(testUserIds)
+              }
+            }
+          });
+        } else {
+          await prisma.user.deleteMany();
+        }
+      } catch (error) {
+        // If there are still foreign key constraint issues, use raw SQL
+        if (error instanceof Error && error.message.includes('foreign key constraint')) {
+          await prisma.$executeRaw`SET CONSTRAINTS ALL DEFERRED;`;
+          await prisma.payment.deleteMany();
+          await prisma.orderItem.deleteMany();
+          await prisma.order.deleteMany();
+          await prisma.cartItem.deleteMany();
+          await prisma.shoppingCart.deleteMany();
+
+          if (testProductIds.size > 0) {
+            await prisma.product.deleteMany({
+              where: {
+                id: {
+                  notIn: Array.from(testProductIds)
+                }
+              }
+            });
+          } else {
+            await prisma.product.deleteMany();
+          }
+
+          if (testUserIds.size > 0) {
+            await prisma.user.deleteMany({
+              where: {
+                id: {
+                  notIn: Array.from(testUserIds)
+                }
+              }
+            });
+          } else {
+            await prisma.user.deleteMany();
+          }
+          await prisma.$executeRaw`SET CONSTRAINTS ALL IMMEDIATE;`;
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Final delay to ensure all cleanup is complete
