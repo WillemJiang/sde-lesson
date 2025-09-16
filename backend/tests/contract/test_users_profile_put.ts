@@ -136,7 +136,7 @@ describe('PUT /users/profile', () => {
       .expect(200);
 
     expect(response.body).toHaveProperty('first_name', 'Jonathan');
-    expect(response.body).toHaveProperty('last_name', 'Doe-Smith'); // Should remain unchanged
+    expect(response.body).toHaveProperty('last_name', 'Doe'); // Should remain unchanged
   });
 
   it('should update only last name', async () => {
@@ -151,7 +151,7 @@ describe('PUT /users/profile', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('first_name', 'Jonathan'); // Should remain unchanged
+    expect(response.body).toHaveProperty('first_name', 'John'); // Should remain unchanged
     expect(response.body).toHaveProperty('last_name', 'Williams');
   });
 
@@ -213,8 +213,8 @@ describe('PUT /users/profile', () => {
       .expect(200);
 
     // Should return current profile data unchanged
-    expect(response.body).toHaveProperty('first_name', 'Jonathan');
-    expect(response.body).toHaveProperty('last_name', 'Williams');
+    expect(response.body).toHaveProperty('first_name', 'John');
+    expect(response.body).toHaveProperty('last_name', 'Doe');
   });
 
   it('should return 400 for invalid data types', async () => {
