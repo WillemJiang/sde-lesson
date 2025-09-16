@@ -7,7 +7,7 @@ import { AppError } from '../middleware/error';
 
 // Initialize Stripe
 const stripe = new Stripe(config.stripe.secretKey, {
-  apiVersion: '2024-06-20',
+  apiVersion: '2025-08-27.basil',
 });
 
 // Webhook event handlers
@@ -29,26 +29,31 @@ const webhookHandlers = {
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
     // Update payment record
-    await prisma.payment.update({
-      where: { stripePaymentIntentId: paymentIntent.id },
-      data: {
-        status: 'COMPLETED',
-        stripeChargeId: paymentIntent.latest_charge as string,
-        completedAt: new Date(),
-      },
+    const payment = await prisma.payment.findFirst({
+      where: { stripe_payment_intent_id: paymentIntent.id },
     });
+
+    if (payment) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'SUCCEEDED',
+        },
+      });
+    }
 
     // Update order status
     const order = await prisma.order.findFirst({
-      where: { paymentId: paymentIntent.id },
+      where: { payment: {
+        stripe_payment_intent_id: paymentIntent.id
+      }},
     });
 
     if (order) {
       await prisma.order.update({
         where: { id: order.id },
         data: {
-          status: 'PAID',
-          paidAt: new Date(),
+          status: 'PROCESSING',
         },
       });
 
@@ -77,24 +82,31 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
     // Update payment record
-    await prisma.payment.update({
-      where: { stripePaymentIntentId: paymentIntent.id },
-      data: {
-        status: 'FAILED',
-        failedAt: new Date(),
-      },
+    const payment = await prisma.payment.findFirst({
+      where: { stripe_payment_intent_id: paymentIntent.id },
     });
+
+    if (payment) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'FAILED',
+        },
+      });
+    }
 
     // Update order status
     const order = await prisma.order.findFirst({
-      where: { paymentId: paymentIntent.id },
+      where: { payment: {
+        stripe_payment_intent_id: paymentIntent.id
+      }},
     });
 
     if (order) {
       await prisma.order.update({
         where: { id: order.id },
         data: {
-          status: 'PAYMENT_FAILED',
+          status: 'CANCELLED',
         },
       });
     }
@@ -147,31 +159,36 @@ async function handleChargeFailed(charge: Stripe.Charge) {
 async function handleChargeRefunded(charge: Stripe.Charge) {
   try {
     // Update payment record
-    await prisma.payment.update({
-      where: { stripeChargeId: charge.id },
-      data: {
-        status: 'REFUNDED',
-        refundedAt: new Date(),
-        refundAmount: charge.amount_refunded,
-      },
-    });
-
-    // Update order status
     const payment = await prisma.payment.findFirst({
-      where: { stripeChargeId: charge.id },
+      where: { stripe_payment_intent_id: charge.payment_intent as string },
     });
 
     if (payment) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'REFUNDED',
+        },
+      });
+    }
+
+    // Update order status
+    const paymentRecord = await prisma.payment.findFirst({
+      where: { stripe_payment_intent_id: charge.payment_intent as string },
+    });
+
+    if (paymentRecord) {
       const order = await prisma.order.findFirst({
-        where: { paymentId: payment.stripePaymentIntentId },
+        where: { payment: {
+          id: paymentRecord.id
+        }},
       });
 
       if (order) {
         await prisma.order.update({
           where: { id: order.id },
           data: {
-            status: 'REFUNDED',
-            refundedAt: new Date(),
+            status: 'CANCELLED',
           },
         });
       }
@@ -209,7 +226,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     logger.info('Subscription updated', {
       subscriptionId: subscription.id,
       status: subscription.status,
-      currentPeriodEnd: subscription.current_period_end,
+      currentPeriodEnd: (subscription as any).current_period_end as number | null,
     });
   } catch (error) {
     logger.error('Error handling subscription updated', {
@@ -237,7 +254,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   try {
     logger.info('Invoice payment succeeded', {
       invoiceId: invoice.id,
-      subscriptionId: invoice.subscription,
+      subscriptionId: (invoice as any).subscription as string | null,
       amount: invoice.amount_paid,
     });
   } catch (error) {
@@ -252,7 +269,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   try {
     logger.warn('Invoice payment failed', {
       invoiceId: invoice.id,
-      subscriptionId: invoice.subscription,
+      subscriptionId: (invoice as any).subscription as string | null,
       amount: invoice.amount_due,
     });
   } catch (error) {
@@ -293,7 +310,7 @@ async function handleCheckoutSessionExpired(session: Stripe.Checkout.Session) {
 }
 
 // Main webhook handler
-export const handleStripeWebhook = async (req: Request, res: Response) => {
+export const handleStripeWebhook = async (req: Request, res: Response): Promise<any> => {
   const sig = req.headers['stripe-signature'] as string;
   let event: Stripe.Event;
 
@@ -362,7 +379,7 @@ export const constructTestEvent = (payload: any, signature: string): Stripe.Even
 };
 
 // Test webhook endpoint (only in development)
-export const testWebhook = async (req: Request, res: Response) => {
+export const testWebhook = async (req: Request, res: Response): Promise<any> => {
   if (config.app.env !== 'development') {
     return res.status(403).json({ error: 'Test webhook only available in development' });
   }

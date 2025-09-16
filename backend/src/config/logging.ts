@@ -1,4 +1,4 @@
-import winston from 'winston';
+import * as winston from 'winston';
 import { Request, Response, NextFunction } from 'express';
 
 // Custom logger interface
@@ -18,13 +18,19 @@ const createLogger = (): winston.Logger => {
     winston.format.errors({ stack: true }),
     winston.format.json(),
     winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
-      const log = {
+      const log: any = {
         timestamp,
         level,
-        message,
-        ...(Object.keys(meta).length > 0 && { meta }),
-        ...(stack && { stack })
+        message
       };
+
+      if (Object.keys(meta).length > 0) {
+        log.meta = meta;
+      }
+
+      if (stack) {
+        log.stack = stack;
+      }
       return JSON.stringify(log);
     })
   );

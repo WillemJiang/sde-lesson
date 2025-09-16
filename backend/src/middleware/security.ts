@@ -14,7 +14,7 @@ export const corsMiddleware = cors({
     const allowedOrigins = [
       'http://localhost:3000',      // Development frontend
       'http://localhost:3001',      // Development backend
-      config.FRONTEND_URL,          // Production frontend
+      config.frontend.url,          // Production frontend
     ].filter(Boolean);
 
     if (allowedOrigins.includes(origin)) {
@@ -60,7 +60,6 @@ export const securityHeaders = helmet({
   frameguard: { action: "deny" },
   hidePoweredBy: true,
   hsts: {
-    enabled: true,
     maxAge: 31536000, // 1 year
     includeSubDomains: true,
     preload: true
@@ -133,7 +132,7 @@ export const securityMiddleware = (req: Request, res: Response, next: NextFuncti
 };
 
 // Request validation middleware
-export const validateRequest = (req: Request, res: Response, next: NextFunction) => {
+export const validateRequest = (req: Request, res: Response, next: NextFunction): void => {
   // Check for suspicious request patterns
   const suspiciousPatterns = [
     /<script/i,
@@ -157,10 +156,11 @@ export const validateRequest = (req: Request, res: Response, next: NextFunction)
   };
 
   if (checkSuspiciousContent(req.body) || checkSuspiciousContent(req.query)) {
-    return res.status(400).json({
+    res.status(400).json({
       error: 'Invalid request',
       details: 'Request contains suspicious content'
     });
+    return;
   }
 
   next();
@@ -168,14 +168,15 @@ export const validateRequest = (req: Request, res: Response, next: NextFunction)
 
 // IP whitelist middleware (optional, for admin routes)
 export const ipWhitelist = (allowedIPs: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const clientIP = req.ip || req.connection.remoteAddress || '';
 
     if (!allowedIPs.includes(clientIP)) {
-      return res.status(403).json({
+      res.status(403).json({
         error: 'Access denied',
         details: 'Your IP address is not authorized'
       });
+      return;
     }
 
     next();
