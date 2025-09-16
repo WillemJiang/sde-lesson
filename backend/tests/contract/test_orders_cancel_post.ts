@@ -11,68 +11,79 @@ describe('POST /orders/{id}/cancel', () => {
   let processingOrderId: string;
 
   beforeEach(async () => {
-    // Create regular user
+    // Create regular user with unique email
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
     const userData = {
-      email: 'order-cancel-test@example.com',
+      email: `order-cancel-test-${timestamp}-${randomSuffix}@example.com`,
       password: 'Password123!',
       first_name: 'John',
       last_name: 'Doe'
     };
 
-    await request(app)
+    let authTokenResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(userData);
 
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
+    // If user already exists, login instead
+    if (authTokenResponse.status === 409) {
+      authTokenResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: userData.email,
+          password: userData.password
+        });
+    }
 
-    authToken = loginResponse.body.token;
+    authToken = authTokenResponse.body.token;
 
-    // Create another user for testing access control
+    // Create another user for testing access control with unique email
     const otherUserData = {
-      email: 'other-cancel-user@example.com',
+      email: `other-cancel-user-${timestamp}-${randomSuffix}@example.com`,
       password: 'Password123!',
       first_name: 'Jane',
       last_name: 'Smith'
     };
 
-    await request(app)
+    let otherUserTokenResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(otherUserData);
 
-    const otherUserLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: otherUserData.email,
-        password: otherUserData.password
-      });
+    // If user already exists, login instead
+    if (otherUserTokenResponse.status === 409) {
+      otherUserTokenResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: otherUserData.email,
+          password: otherUserData.password
+        });
+    }
 
-    otherUserAuthToken = otherUserLoginResponse.body.token;
+    otherUserAuthToken = otherUserTokenResponse.body.token;
 
-    // Create admin user
+    // Create admin user with unique email
     const adminData = {
-      email: 'admin-order-cancel@example.com',
+      email: `admin-order-cancel-${timestamp}-${randomSuffix}@example.com`,
       password: 'Password123!',
       first_name: 'Admin',
       last_name: 'User'
     };
 
-    await request(app)
+    let adminTokenResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(adminData);
 
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
+    // If admin user already exists, login instead
+    if (adminTokenResponse.status === 409) {
+      adminTokenResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: adminData.email,
+          password: adminData.password
+        });
+    }
 
-    adminAuthToken = adminLoginResponse.body.token;
+    adminAuthToken = adminTokenResponse.body.token;
 
     // Create test product
     const productData = {
@@ -89,7 +100,7 @@ describe('POST /orders/{id}/cancel', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
 
     // Create a pending order for testing
     await request(app)

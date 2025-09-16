@@ -8,47 +8,55 @@ describe('GET /orders', () => {
   let productId: string;
 
   beforeEach(async () => {
-    // Create regular user
+    // Create regular user with unique email
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
     const userData = {
-      email: 'orders-test@example.com',
+      email: `orders-test-${timestamp}-${randomSuffix}@example.com`,
       password: 'Password123!',
       first_name: 'John',
       last_name: 'Doe'
     };
 
-    await request(app)
+    let authTokenResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(userData);
 
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
+    // If user already exists, login instead
+    if (authTokenResponse.status === 409) {
+      authTokenResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: userData.email,
+          password: userData.password
+        });
+    }
 
-    authToken = loginResponse.body.token;
+    authToken = authTokenResponse.body.token;
 
-    // Create admin user
+    // Create admin user with unique email
     const adminData = {
-      email: 'admin-orders@example.com',
+      email: `admin-orders-${timestamp}-${randomSuffix}@example.com`,
       password: 'Password123!',
       first_name: 'Admin',
       last_name: 'User'
     };
 
-    await request(app)
+    let adminTokenResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(adminData);
 
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
+    // If admin user already exists, login instead
+    if (adminTokenResponse.status === 409) {
+      adminTokenResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: adminData.email,
+          password: adminData.password
+        });
+    }
 
-    adminAuthToken = adminLoginResponse.body.token;
+    adminAuthToken = adminTokenResponse.body.token;
 
     // Create test product
     const productData = {
@@ -65,7 +73,7 @@ describe('GET /orders', () => {
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(productData);
 
-    productId = createResponse.body.id;
+    productId = createResponse.body.data.id;
   });
 
   it('should return empty orders list for new user', async () => {
@@ -148,7 +156,40 @@ describe('GET /orders', () => {
   });
 
   it('should return orders with custom pagination', async () => {
-    // Create another order
+    // Create first order
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        product_id: productId,
+        quantity: 2
+      })
+      .expect(201);
+
+    const firstOrderData = {
+      shipping_address: {
+        street: '123 Test St',
+        city: 'Test City',
+        state: 'TS',
+        zip_code: '12345',
+        country: 'USA'
+      },
+      billing_address: {
+        street: '123 Test St',
+        city: 'Test City',
+        state: 'TS',
+        zip_code: '12345',
+        country: 'USA'
+      }
+    };
+
+    await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(firstOrderData)
+      .expect(201);
+
+    // Create second order
     await request(app)
       .post('/api/v1/cart/items')
       .set('Authorization', `Bearer ${authToken}`)
@@ -158,7 +199,7 @@ describe('GET /orders', () => {
       })
       .expect(201);
 
-    const orderData = {
+    const secondOrderData = {
       shipping_address: {
         street: '456 Test Ave',
         city: 'Test Town',
@@ -178,7 +219,7 @@ describe('GET /orders', () => {
     await request(app)
       .post('/api/v1/orders')
       .set('Authorization', `Bearer ${authToken}`)
-      .send(orderData)
+      .send(secondOrderData)
       .expect(201);
 
     // Get orders with custom pagination

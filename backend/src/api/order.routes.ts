@@ -17,7 +17,7 @@ router.get('/', [
   query('user_id').optional().isUUID().withMessage('Invalid user ID'),
   query('start_date').optional().isISO8601().withMessage('Start date must be a valid date'),
   query('end_date').optional().isISO8601().withMessage('End date must be a valid date'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -27,7 +27,7 @@ router.get('/', [
 
     const options: OrderQueryOptions = {
       page: req.query.page ? parseInt(req.query.page as string) : 1,
-      limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
       sortBy: (req.query.sortBy as 'created_at' | 'total_amount' | 'status') || 'created_at',
       sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
     };
@@ -47,7 +47,13 @@ router.get('/', [
 
     res.json({
       message: 'Orders retrieved successfully',
-      data: result,
+      orders: result.orders,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        total_pages: result.totalPages,
+      },
     });
   } catch (error) {
     if (error instanceof Error) {
@@ -151,7 +157,7 @@ router.get('/:id', [
 // Cancel an order
 router.post('/:id/cancel', [
   param('id').isUUID().withMessage('Invalid order ID'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

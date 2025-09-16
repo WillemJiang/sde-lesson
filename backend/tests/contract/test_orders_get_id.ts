@@ -10,68 +10,79 @@ describe('GET /orders/{id}', () => {
   let otherUserAuthToken: string;
 
   beforeEach(async () => {
-    // Create regular user
+    // Create regular user with unique email
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
     const userData = {
-      email: 'order-detail-test@example.com',
+      email: `order-detail-test-${timestamp}-${randomSuffix}@example.com`,
       password: 'Password123!',
       first_name: 'John',
       last_name: 'Doe'
     };
 
-    await request(app)
+    let authTokenResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(userData);
 
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
+    // If user already exists, login instead
+    if (authTokenResponse.status === 409) {
+      authTokenResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: userData.email,
+          password: userData.password
+        });
+    }
 
-    authToken = loginResponse.body.token;
+    authToken = authTokenResponse.body.token;
 
-    // Create another user for testing access control
+    // Create another user for testing access control with unique email
     const otherUserData = {
-      email: 'other-user@example.com',
+      email: `other-user-${timestamp}-${randomSuffix}@example.com`,
       password: 'Password123!',
       first_name: 'Jane',
       last_name: 'Smith'
     };
 
-    await request(app)
+    let otherUserTokenResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(otherUserData);
 
-    const otherUserLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: otherUserData.email,
-        password: otherUserData.password
-      });
+    // If user already exists, login instead
+    if (otherUserTokenResponse.status === 409) {
+      otherUserTokenResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: otherUserData.email,
+          password: otherUserData.password
+        });
+    }
 
-    otherUserAuthToken = otherUserLoginResponse.body.token;
+    otherUserAuthToken = otherUserTokenResponse.body.token;
 
-    // Create admin user
+    // Create admin user with unique email
     const adminData = {
-      email: 'admin-order-detail@example.com',
+      email: `admin-order-detail-${timestamp}-${randomSuffix}@example.com`,
       password: 'Password123!',
       first_name: 'Admin',
       last_name: 'User'
     };
 
-    await request(app)
+    let adminTokenResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(adminData);
 
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
+    // If admin user already exists, login instead
+    if (adminTokenResponse.status === 409) {
+      adminTokenResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: adminData.email,
+          password: adminData.password
+        });
+    }
 
-    adminAuthToken = adminLoginResponse.body.token;
+    adminAuthToken = adminTokenResponse.body.token;
 
     // Create test product
     const productData = {

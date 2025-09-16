@@ -19,7 +19,12 @@ const apiRouter = Router();
 // Apply global middleware
 apiRouter.use(helmet());
 apiRouter.use(cors());
-apiRouter.use(morgan('combined'));
+apiRouter.use(morgan('dev', {
+  skip: function (req, res) {
+    // Skip Morgan logs in test environment to reduce noise
+    return process.env.NODE_ENV === 'test';
+  }
+}));
 apiRouter.use(express.json({ limit: '10mb' }));
 apiRouter.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

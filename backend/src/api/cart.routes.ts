@@ -53,7 +53,18 @@ router.get('/', authenticateToken, async (req: Request, res: Response): Promise<
 
 // Add item to cart
 router.post('/items', [
-  body('product_id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
+  body('product_id').custom((value) => {
+    // Allow our custom ID format (letters followed by letters/numbers)
+    if (/^[a-z]+[a-z0-9]+$/.test(value)) {
+      return true;
+    }
+    // Allow valid UUID format
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)) {
+      return true;
+    }
+    // Reject invalid format
+    throw new Error('Invalid product ID format');
+  }),
   body('quantity').isInt({ min: 1 }).withMessage('Quantity must be a positive integer'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -77,6 +88,9 @@ router.post('/items', [
     };
 
     const cart = await cartService.addToCart(input);
+
+    // Find the added/updated item in the cart
+    const addedItem = cart.items.find(item => item.product_id === input.product_id);
 
     res.status(201).json({
       message: 'Item added to cart successfully',

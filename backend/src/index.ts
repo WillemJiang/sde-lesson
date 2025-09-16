@@ -18,7 +18,12 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(helmet());
 app.use(cors());
-app.use(morgan('combined'));
+app.use(morgan('dev', {
+  skip: function (req, res) {
+    // Skip Morgan logs in test environment to reduce noise
+    return process.env.NODE_ENV === 'test';
+  }
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

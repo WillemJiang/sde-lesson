@@ -264,7 +264,7 @@ describe('POST /cart/items', () => {
       .send(itemData)
       .expect(201);
 
-    expect(response.body).toHaveProperty('quantity', 5);
+    expect(response.body.data.items[0]).toHaveProperty('quantity', 5);
   });
 
   it('should handle adding same product multiple times (update quantity)', async () => {
@@ -293,7 +293,7 @@ describe('POST /cart/items', () => {
       .expect(201);
 
     // Should have total quantity of 4 (1 + 3)
-    expect(response.body.data).toHaveProperty('quantity', 4);
+    expect(response.body.data.items[0]).toHaveProperty('quantity', 4);
   });
 
   it('should return consistent cart item structure', async () => {
@@ -308,7 +308,7 @@ describe('POST /cart/items', () => {
       .send(itemData)
       .expect(201);
 
-    const cartItem = response.body.data;
+    const cartItem = response.body.data.items[0];
 
     // Verify all expected fields are present and have correct types
     expect(typeof cartItem.id).toBe('string');
@@ -336,6 +336,6 @@ describe('POST /cart/items', () => {
       .send(itemData)
       .expect(201);
 
-    expect(response.body.data).toHaveProperty('price_at_time', 79.99);
+    expect(response.body.data.items[0]).toHaveProperty('price_at_time', 79.99);
   });
 });
