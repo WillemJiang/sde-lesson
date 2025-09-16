@@ -24,7 +24,7 @@ router.get('/', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
-    return;
+      return;
     }
 
     const options: ProductQueryOptions = {
@@ -69,7 +69,7 @@ router.get('/', [
 router.post('/', [
   authenticateToken,
   requireAdmin,
-  body('name').notEmpty().withMessage('Product name is required'),
+  body('name').isLength({ min: 3 }).withMessage('Product name must be at least 3 characters long'),
   body('description').optional().isString(),
   body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
   body('sku').notEmpty().withMessage('SKU is required'),
@@ -82,7 +82,7 @@ router.post('/', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
-    return;
+      return;
     }
 
     const productData = {
@@ -106,7 +106,7 @@ router.post('/', [
     if (error instanceof Error) {
       if (error.message === 'Product with this SKU already exists') {
         res.status(409).json({ error: error.message });
-      return;
+        return;
       }
       res.status(400).json({ error: error.message });
       return;
@@ -123,7 +123,7 @@ router.get('/:id', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
-    return;
+      return;
     }
 
     const { id } = req.params;
@@ -156,7 +156,7 @@ router.put('/:id', [
   authenticateToken,
   requireAdmin,
   param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
-  body('name').optional().notEmpty().withMessage('Product name cannot be empty'),
+  body('name').optional().isLength({ min: 3 }).withMessage('Product name must be at least 3 characters long'),
   body('description').optional().isString(),
   body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
   body('sku').optional().notEmpty().withMessage('SKU cannot be empty'),
@@ -169,7 +169,7 @@ router.put('/:id', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
-    return;
+      return;
     }
 
     const { id } = req.params;
@@ -221,7 +221,7 @@ router.delete('/:id', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
-    return;
+      return;
     }
 
     const { id } = req.params;

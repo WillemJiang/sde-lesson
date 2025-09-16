@@ -58,23 +58,26 @@ export class ProductService {
     const where: any = {};
 
     if (filters.category) {
-      where.category = { contains: filters.category, mode: 'insensitive' };
+      where.category = { contains: filters.category };
     }
 
     if (filters.search) {
       where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } },
-        { sku: { contains: filters.search, mode: 'insensitive' } },
+        { name: { contains: filters.search } },
+        { description: { contains: filters.search } },
+        { sku: { contains: filters.search } },
       ];
     }
 
-    if (filters.min_price !== undefined) {
+    if (filters.min_price !== undefined && filters.max_price !== undefined) {
+      if (filters.min_price > filters.max_price) {
+        throw new Error('Minimum price cannot be greater than maximum price');
+      }
+      where.price = { gte: filters.min_price, lte: filters.max_price };
+    } else if (filters.min_price !== undefined) {
       where.price = { gte: filters.min_price };
-    }
-
-    if (filters.max_price !== undefined) {
-      where.price = { ...where.price, lte: filters.max_price };
+    } else if (filters.max_price !== undefined) {
+      where.price = { lte: filters.max_price };
     }
 
     if (filters.is_active !== undefined) {

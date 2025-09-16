@@ -2,52 +2,39 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
+// Declare testUtils to make it available in this file
+declare const testUtils: {
+  generateUniqueEmail: (prefix: string) => string;
+  generateUniqueSKU: (prefix: string) => string;
+  createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+};
+
 describe('POST /products', () => {
   let adminAuthToken: string;
   let userAuthToken: string;
 
   beforeEach(async () => {
-    // Create admin user
-    const adminData = {
-      email: 'admin@example.com',
-      password: 'Password123!',
+    // Generate unique emails for each test run
+    const adminEmail = testUtils.generateUniqueEmail('admin-post-test');
+    const userEmail = testUtils.generateUniqueEmail('regular-user');
+
+    // Create admin user with preserved token
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: adminEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Admin',
       last_name: 'User'
-    };
+    });
+    adminAuthToken = adminResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(adminData);
-
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
-
-    adminAuthToken = adminLoginResponse.body.token;
-
-    // Create regular user
-    const userData = {
-      email: 'regular-user@example.com',
-      password: 'Password123!',
+    // Create regular user with preserved token
+    const userResult = await testUtils.createTestUserWithToken({
+      email: userEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Regular',
       last_name: 'User'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData);
-
-    const userLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
-
-    userAuthToken = userLoginResponse.body.token;
+    });
+    userAuthToken = userResult.token;
   });
 
   it('should create product successfully with admin privileges', async () => {
@@ -56,7 +43,7 @@ describe('POST /products', () => {
       description: 'A test product description',
       price: 99.99,
       stock_quantity: 100,
-      sku: 'TEST-001',
+      sku: testUtils.generateUniqueSKU('TEST-PRODUCT'),
       category: 'electronics',
       image_url: 'https://example.com/image.jpg'
     };
@@ -85,7 +72,7 @@ describe('POST /products', () => {
       description: 'This should not be created',
       price: 99.99,
       stock_quantity: 100,
-      sku: 'UNAUTH-001',
+      sku: testUtils.generateUniqueSKU('UNAUTH'),
       category: 'electronics'
     };
 
@@ -102,7 +89,7 @@ describe('POST /products', () => {
       description: 'This should not be created',
       price: 99.99,
       stock_quantity: 100,
-      sku: 'NOAUTH-001',
+      sku: testUtils.generateUniqueSKU('NOAUTH'),
       category: 'electronics'
     };
 
@@ -131,7 +118,7 @@ describe('POST /products', () => {
       description: 'Product with invalid price',
       price: -99.99, // Negative price
       stock_quantity: 100,
-      sku: 'INVALID-001',
+      sku: testUtils.generateUniqueSKU('INVALID-PRICE'),
       category: 'electronics'
     };
 
@@ -148,7 +135,7 @@ describe('POST /products', () => {
       description: 'Product with invalid stock',
       price: 99.99,
       stock_quantity: -100, // Negative stock
-      sku: 'INVALID-002',
+      sku: testUtils.generateUniqueSKU('INVALID-STOCK'),
       category: 'electronics'
     };
 
@@ -165,7 +152,7 @@ describe('POST /products', () => {
       description: 'Product with short name',
       price: 99.99,
       stock_quantity: 100,
-      sku: 'INVALID-003',
+      sku: testUtils.generateUniqueSKU('INVALID-NAME'),
       category: 'electronics'
     };
 
@@ -176,13 +163,14 @@ describe('POST /products', () => {
       .expect(400);
   });
 
-  it('should return 400 for invalid SKU (duplicate)', async () => {
+  it('should return 409 for invalid SKU (duplicate)', async () => {
+    const uniqueSKU = testUtils.generateUniqueSKU('DUPLICATE');
     const productData = {
       name: 'First Product',
       description: 'First product creation',
       price: 99.99,
       stock_quantity: 100,
-      sku: 'DUPLICATE-SKU',
+      sku: uniqueSKU,
       category: 'electronics'
     };
 
@@ -199,7 +187,7 @@ describe('POST /products', () => {
       description: 'Product with duplicate SKU',
       price: 149.99,
       stock_quantity: 50,
-      sku: 'DUPLICATE-SKU', // Same SKU
+      sku: uniqueSKU, // Same SKU
       category: 'electronics'
     };
 
@@ -207,7 +195,7 @@ describe('POST /products', () => {
       .post('/api/v1/products')
       .set('Authorization', `Bearer ${adminAuthToken}`)
       .send(duplicateProductData)
-      .expect(400);
+      .expect(409);
   });
 
   it('should return 400 for invalid image URL', async () => {
@@ -216,7 +204,7 @@ describe('POST /products', () => {
       description: 'Product with invalid image URL',
       price: 99.99,
       stock_quantity: 100,
-      sku: 'INVALID-004',
+      sku: testUtils.generateUniqueSKU('INVALID-URL'),
       category: 'electronics',
       image_url: 'not-a-valid-url'
     };

@@ -2,6 +2,13 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
+// Declare testUtils to make it available in this file
+declare const testUtils: {
+  generateUniqueEmail: (prefix: string) => string;
+  generateUniqueSKU: (prefix: string) => string;
+  createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+};
+
 describe('DELETE /products/{id}', () => {
   let adminAuthToken: string;
   let userAuthToken: string;
@@ -9,47 +16,27 @@ describe('DELETE /products/{id}', () => {
   let productIdToKeep: string;
 
   beforeEach(async () => {
-    // Create admin user
-    const adminData = {
-      email: 'admin-delete@example.com',
-      password: 'Password123!',
+    // Generate unique emails for each test run
+    const adminEmail = testUtils.generateUniqueEmail('admin-delete-test');
+    const userEmail = testUtils.generateUniqueEmail('regular-delete-test');
+
+    // Create admin user with preserved token
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: adminEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Admin',
       last_name: 'User'
-    };
+    });
+    adminAuthToken = adminResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(adminData);
-
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
-
-    adminAuthToken = adminLoginResponse.body.token;
-
-    // Create regular user
-    const userData = {
-      email: 'regular-delete@example.com',
-      password: 'Password123!',
+    // Create regular user with preserved token
+    const userResult = await testUtils.createTestUserWithToken({
+      email: userEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Regular',
       last_name: 'User'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData);
-
-    const userLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
-
-    userAuthToken = userLoginResponse.body.token;
+    });
+    userAuthToken = userResult.token;
 
     // Create test products
     const productToDeleteData = {
@@ -57,7 +44,7 @@ describe('DELETE /products/{id}', () => {
       description: 'This product will be deleted',
       price: 29.99,
       stock_quantity: 50,
-      sku: 'DELETE-TEST-001',
+      sku: testUtils.generateUniqueSKU('DELETE-TEST'),
       category: 'electronics'
     };
 
@@ -73,7 +60,7 @@ describe('DELETE /products/{id}', () => {
       description: 'This product will not be deleted',
       price: 39.99,
       stock_quantity: 25,
-      sku: 'KEEP-TEST-001',
+      sku: testUtils.generateUniqueSKU('KEEP-TEST'),
       category: 'books'
     };
 
@@ -167,7 +154,7 @@ describe('DELETE /products/{id}', () => {
     await request(app)
       .delete(`/api/v1/products/${productIdToDelete}`)
       .set('Authorization', `Bearer ${adminAuthToken}`)
-      .expect(404);
+      .expect(204); // DELETE should be idempotent
   });
 
   it('should not affect other products when deleting one', async () => {

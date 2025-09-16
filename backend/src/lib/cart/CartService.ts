@@ -91,6 +91,7 @@ export class CartService {
       product_id: item.product_id,
       quantity: item.quantity,
       price_at_time: item.price_at_time,
+      created_at: item.created_at,
       product: item.product,
     }));
 

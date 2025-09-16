@@ -98,14 +98,16 @@ describe('POST /cart/items', () => {
       .send(itemData)
       .expect(201);
 
-    expect(response.body.data).toHaveProperty('id');
-    expect(response.body.data).toHaveProperty('product_id', productId);
-    expect(response.body.data).toHaveProperty('quantity', itemData.quantity);
-    expect(response.body.data).toHaveProperty('price_at_time', 79.99);
-    expect(response.body.data).toHaveProperty('created_at');
-    expect(response.body.data).toHaveProperty('product');
-    expect(response.body.data.product).toHaveProperty('id', productId);
-    expect(response.body.data.product).toHaveProperty('name', 'Test Product for Cart Items');
+    expect(response.body.data).toHaveProperty('items');
+    expect(response.body.data.items).toHaveLength(1);
+    expect(response.body.data.items[0]).toHaveProperty('id');
+    expect(response.body.data.items[0]).toHaveProperty('product_id', productId);
+    expect(response.body.data.items[0]).toHaveProperty('quantity', itemData.quantity);
+    expect(response.body.data.items[0]).toHaveProperty('price_at_time', 79.99);
+    expect(response.body.data.items[0]).toHaveProperty('created_at');
+    expect(response.body.data.items[0]).toHaveProperty('product');
+    expect(response.body.data.items[0].product).toHaveProperty('id', productId);
+    expect(response.body.data.items[0].product).toHaveProperty('name', 'Test Product for Cart Items');
   });
 
   it('should return 401 when no authentication token provided', async () => {

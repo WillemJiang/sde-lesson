@@ -80,7 +80,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(firstItemData);
 
-    cartItemIdToDelete = firstItemResponse.body.data.id;
+    cartItemIdToDelete = firstItemResponse.body.data.items[0].id;
 
     const secondItemData = {
       product_id: productId,
@@ -92,7 +92,7 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(secondItemData);
 
-    cartItemIdToKeep = secondItemResponse.body.data.id;
+    cartItemIdToKeep = secondItemResponse.body.data.items[0].id;
   });
 
   it('should delete cart item successfully', async () => {

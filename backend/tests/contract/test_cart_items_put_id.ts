@@ -97,7 +97,7 @@ describe('PUT /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(addItemData);
 
-    cartItemId = addItemResponse.body.data.id;
+    cartItemId = addItemResponse.body.data.items[0].id;
   });
 
   it('should update cart item quantity successfully', async () => {
@@ -111,12 +111,14 @@ describe('PUT /cart/items/{id}', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body.data).toHaveProperty('id', cartItemId);
-    expect(response.body.data).toHaveProperty('quantity', updateData.quantity);
-    expect(response.body.data).toHaveProperty('product_id', productId);
-    expect(response.body.data).toHaveProperty('price_at_time', 89.99);
-    expect(response.body.data).toHaveProperty('product');
-    expect(response.body.data.product).toHaveProperty('id', productId);
+    expect(response.body.data).toHaveProperty('items');
+    const updatedItem = response.body.data.items.find((item: any) => item.id === cartItemId);
+    expect(updatedItem).toHaveProperty('id', cartItemId);
+    expect(updatedItem).toHaveProperty('quantity', updateData.quantity);
+    expect(updatedItem).toHaveProperty('product_id', productId);
+    expect(updatedItem).toHaveProperty('price_at_time', 89.99);
+    expect(updatedItem).toHaveProperty('product');
+    expect(updatedItem.product).toHaveProperty('id', productId);
   });
 
   it('should return 401 when no authentication token provided', async () => {

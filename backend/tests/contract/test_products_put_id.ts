@@ -2,53 +2,40 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
+// Declare testUtils to make it available in this file
+declare const testUtils: {
+  generateUniqueEmail: (prefix: string) => string;
+  generateUniqueSKU: (prefix: string) => string;
+  createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+};
+
 describe('PUT /products/{id}', () => {
   let adminAuthToken: string;
   let userAuthToken: string;
   let productId: string;
 
   beforeEach(async () => {
-    // Create admin user
-    const adminData = {
-      email: 'admin-update@example.com',
-      password: 'Password123!',
+    // Generate unique emails for each test run
+    const adminEmail = testUtils.generateUniqueEmail('admin-put-test');
+    const userEmail = testUtils.generateUniqueEmail('regular-put-test');
+
+    // Create admin user with preserved token
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: adminEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Admin',
       last_name: 'User'
-    };
+    });
+    adminAuthToken = adminResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(adminData);
-
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
-
-    adminAuthToken = adminLoginResponse.body.token;
-
-    // Create regular user
-    const userData = {
-      email: 'regular-update@example.com',
-      password: 'Password123!',
+    // Create regular user with preserved token
+    const userResult = await testUtils.createTestUserWithToken({
+      email: userEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Regular',
       last_name: 'User'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData);
-
-    const userLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
-
-    userAuthToken = userLoginResponse.body.token;
+    });
+    userAuthToken = userResult.token;
 
     // Create a test product to update
     const productData = {
@@ -56,7 +43,7 @@ describe('PUT /products/{id}', () => {
       description: 'Original product description',
       price: 99.99,
       stock_quantity: 100,
-      sku: 'UPDATE-TEST-001',
+      sku: testUtils.generateUniqueSKU('UPDATE-TEST'),
       category: 'electronics'
     };
 

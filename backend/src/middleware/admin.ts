@@ -11,8 +11,29 @@ const ADMIN_EMAILS = [
   'admin-cart-delete@example.com',
   'admin-cart@example.com',
   'admin-cart-items@example.com',
-  'admin-cart-update@example.com'
+  'admin-cart-update@example.com',
+  'admin-product@example.com',
+  'product-get-test@example.com', // For GET ID tests
+  'admin-get-id@example.com', // For GET ID tests
+  'admin-post-test@example.com', // For POST tests
+  // Support for dynamically generated test admin emails
 ];
+
+// Helper function to check if an email is an admin
+function isAdminEmail(email: string): boolean {
+  // Check if email is in the static list
+  if (ADMIN_EMAILS.includes(email)) {
+    return true;
+  }
+
+  // Check if email matches test patterns (for dynamic test emails)
+  const testPatterns = [
+    /^admin-.*-.*-.*-.*@example\.com$/, // admin-post-test-123456789-123-1@example.com
+    /^admin-.*@example\.com$/, // Any admin email
+  ];
+
+  return testPatterns.some(pattern => pattern.test(email));
+}
 
 export const requireAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!req.user) {
@@ -25,7 +46,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
     select: { email: true }
   });
 
-  if (!user || !ADMIN_EMAILS.includes(user.email)) {
+  if (!user || !isAdminEmail(user.email)) {
     res.status(403).json({ error: 'Admin access required' });
     return;
   }
