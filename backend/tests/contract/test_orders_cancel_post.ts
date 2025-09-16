@@ -2,6 +2,13 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
+// Declare testUtils to make it available in this file
+declare const testUtils: {
+  generateUniqueEmail: (prefix: string) => string;
+  generateUniqueSKU: (prefix: string) => string;
+  createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+};
+
 describe('POST /orders/{id}/cancel', () => {
   let authToken: string;
   let adminAuthToken: string;
@@ -11,79 +18,37 @@ describe('POST /orders/{id}/cancel', () => {
   let processingOrderId: string;
 
   beforeEach(async () => {
-    // Create regular user with unique email
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 10);
-    const userData = {
-      email: `order-cancel-test-${timestamp}-${randomSuffix}@example.com`,
-      password: 'Password123!',
+    // Generate unique emails for each test run
+    const userEmail = testUtils.generateUniqueEmail('order-cancel');
+    const otherUserEmail = testUtils.generateUniqueEmail('other-cancel');
+    const adminEmail = testUtils.generateUniqueEmail('admin-order-cancel');
+
+    // Create regular user with preserved token
+    const userResult = await testUtils.createTestUserWithToken({
+      email: userEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'John',
       last_name: 'Doe'
-    };
+    });
+    authToken = userResult.token;
 
-    let authTokenResponse = await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData);
-
-    // If user already exists, login instead
-    if (authTokenResponse.status === 409) {
-      authTokenResponse = await request(app)
-        .post('/api/v1/auth/login')
-        .send({
-          email: userData.email,
-          password: userData.password
-        });
-    }
-
-    authToken = authTokenResponse.body.token;
-
-    // Create another user for testing access control with unique email
-    const otherUserData = {
-      email: `other-cancel-user-${timestamp}-${randomSuffix}@example.com`,
-      password: 'Password123!',
+    // Create another user for testing access control with preserved token
+    const otherUserResult = await testUtils.createTestUserWithToken({
+      email: otherUserEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Jane',
       last_name: 'Smith'
-    };
+    });
+    otherUserAuthToken = otherUserResult.token;
 
-    let otherUserTokenResponse = await request(app)
-      .post('/api/v1/auth/register')
-      .send(otherUserData);
-
-    // If user already exists, login instead
-    if (otherUserTokenResponse.status === 409) {
-      otherUserTokenResponse = await request(app)
-        .post('/api/v1/auth/login')
-        .send({
-          email: otherUserData.email,
-          password: otherUserData.password
-        });
-    }
-
-    otherUserAuthToken = otherUserTokenResponse.body.token;
-
-    // Create admin user with unique email
-    const adminData = {
-      email: `admin-order-cancel-${timestamp}-${randomSuffix}@example.com`,
-      password: 'Password123!',
+    // Create admin user with preserved token
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: adminEmail,
+      password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Admin',
       last_name: 'User'
-    };
-
-    let adminTokenResponse = await request(app)
-      .post('/api/v1/auth/register')
-      .send(adminData);
-
-    // If admin user already exists, login instead
-    if (adminTokenResponse.status === 409) {
-      adminTokenResponse = await request(app)
-        .post('/api/v1/auth/login')
-        .send({
-          email: adminData.email,
-          password: adminData.password
-        });
-    }
-
-    adminAuthToken = adminTokenResponse.body.token;
+    });
+    adminAuthToken = adminResult.token;
 
     // Create test product
     const productData = {
@@ -91,7 +56,7 @@ describe('POST /orders/{id}/cancel', () => {
       description: 'A test product for order cancellation testing',
       price: 179.99,
       stock_quantity: 100,
-      sku: 'ORDER-CANCEL-001',
+      sku: testUtils.generateUniqueSKU('ORDER-CANCEL'),
       category: 'electronics'
     };
 
@@ -134,7 +99,7 @@ describe('POST /orders/{id}/cancel', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(orderData);
 
-    pendingOrderId = pendingOrderResponse.body.id;
+    pendingOrderId = pendingOrderResponse.body.data.id;
 
     // Create another order that we'll mark as processing (cannot be cancelled)
     await request(app)
@@ -151,7 +116,7 @@ describe('POST /orders/{id}/cancel', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(orderData);
 
-    processingOrderId = processingOrderResponse.body.id;
+    processingOrderId = processingOrderResponse.body.data.id;
   });
 
   it('should cancel pending order successfully', async () => {
@@ -179,7 +144,8 @@ describe('POST /orders/{id}/cancel', () => {
   });
 
   it('should return 404 for non-existent order ID', async () => {
-    const nonExistentId = '00000000-0000-0000-0000-000000000000';
+    // Use a valid CUID format that doesn't exist
+    const nonExistentId = 'cm1234567890abcdef12345678';
 
     await request(app)
       .post(`/api/v1/orders/${nonExistentId}/cancel`)

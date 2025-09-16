@@ -155,7 +155,7 @@ router.get('/:id', [
 router.put('/:id', [
   authenticateToken,
   requireAdmin,
-  param('id').isUUID().withMessage('Invalid product ID format'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
   body('name').optional().isLength({ min: 3 }).withMessage('Product name must be at least 3 characters long'),
   body('description').optional().isString(),
   body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
@@ -215,7 +215,7 @@ router.put('/:id', [
 router.delete('/:id', [
   authenticateToken,
   requireAdmin,
-  param('id').isUUID().withMessage('Invalid product ID format'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);

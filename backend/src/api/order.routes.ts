@@ -120,7 +120,7 @@ router.post('/', [
 
 // Get a specific order by ID
 router.get('/:id', [
-  param('id').isString().withMessage('Order ID is required').isLength({ min: 1 }).withMessage('Order ID cannot be empty'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid order ID format'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -156,7 +156,7 @@ router.get('/:id', [
 
 // Cancel an order
 router.post('/:id/cancel', [
-  param('id').isString().withMessage('Order ID is required').isLength({ min: 1 }).withMessage('Order ID cannot be empty'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid order ID format'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -197,7 +197,7 @@ router.post('/:id/cancel', [
 
 // Get user's orders
 router.get('/user/:userId', [
-  param('userId').isString().withMessage('User ID is required').isLength({ min: 1 }).withMessage('User ID cannot be empty'),
+  param('userId').matches(/^[a-z0-9]+$/).withMessage('Invalid user ID format'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
   query('sortBy').optional().isIn(['created_at', 'total_amount', 'status']).withMessage('Invalid sort field'),
