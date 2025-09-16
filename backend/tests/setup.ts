@@ -1,14 +1,23 @@
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
+// Set environment to reduce Prisma logging in tests
+process.env.LOG_LEVEL = 'warn';
+
 let prisma: PrismaClient;
 
 // Store test users and tokens to prevent deletion during test runs
 const testUserIds = new Set<string>();
 
 beforeAll(async () => {
+  // Disable Prisma query logs for cleaner test output
+  process.env.PRISMA_LOG_LEVEL = 'warn';
+  process.env.PRISMA_LOGGER = 'none';
+
   // Use the existing database but ensure it's properly set up
-  prisma = new PrismaClient();
+  prisma = new PrismaClient({
+    log: []
+  });
   await prisma.$connect();
 });
 
