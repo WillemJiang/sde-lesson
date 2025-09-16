@@ -157,7 +157,7 @@ router.get('/purchase-summary', authenticateToken, async (req: Request, res: Res
 
 // Get user by ID (admin only)
 router.get('/:id', [
-  param('id').isUUID().withMessage('Invalid user ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid user ID format'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -309,7 +309,7 @@ router.get('/stats/summary', async (req: Request, res: Response): Promise<void> 
 
 // Deactivate user (admin only)
 router.patch('/:id/deactivate', [
-  param('id').isUUID().withMessage('Invalid user ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid user ID format'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -341,7 +341,7 @@ router.patch('/:id/deactivate', [
 
 // Reactivate user (admin only)
 router.patch('/:id/reactivate', [
-  param('id').isUUID().withMessage('Invalid user ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid user ID format'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -373,7 +373,7 @@ router.patch('/:id/reactivate', [
 
 // Update user verification status (admin only)
 router.patch('/:id/verification', [
-  param('id').isUUID().withMessage('Invalid user ID'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid user ID format'),
   body('is_verified').isBoolean().withMessage('is_verified must be a boolean'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {

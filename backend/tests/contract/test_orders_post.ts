@@ -44,7 +44,8 @@ describe('POST /orders', () => {
       email: adminEmail,
       password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Admin',
-      last_name: 'User'
+      last_name: 'User',
+      role: 'ADMIN' // Add admin role
     });
     adminAuthToken = adminResult.token;
 
@@ -327,7 +328,7 @@ describe('POST /orders', () => {
       .send(orderData)
       .expect(201);
 
-    expect(response.body.total_amount).toBe(expectedTotal);
+    expect(response.body.data.total_amount).toBe(expectedTotal);
   });
 
   it('should handle different shipping and billing addresses', async () => {
@@ -365,7 +366,7 @@ describe('POST /orders', () => {
       .expect(201);
 
     expect(response.body).toHaveProperty('id');
-    expect(response.body.status).toBe('PENDING');
+    expect(response.body.data.status).toBe('PENDING');
   });
 
   it('should return 400 for invalid address data', async () => {

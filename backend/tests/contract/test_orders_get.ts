@@ -33,7 +33,8 @@ describe('GET /orders', () => {
       email: adminEmail,
       password_hash: 'hashed_password', // Simplified for testing
       first_name: 'Admin',
-      last_name: 'User'
+      last_name: 'User',
+      role: 'ADMIN' // Add admin role
     });
     adminAuthToken = adminResult.token;
 
@@ -43,7 +44,7 @@ describe('GET /orders', () => {
       description: 'A test product for order testing',
       price: 199.99,
       stock_quantity: 100,
-      sku: 'ORDERS-TEST-001',
+      sku: testUtils.generateUniqueSKU('ORDERS-TEST'),
       category: 'electronics'
     };
 

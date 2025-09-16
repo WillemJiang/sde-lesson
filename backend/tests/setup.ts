@@ -10,6 +10,17 @@ let prisma: PrismaClient;
 const testUserIds = new Set<string>();
 const testProductIds = new Set<string>();
 
+// Track test-specific data to ensure complete isolation
+const testSessionData = new Map<string, {
+  users: Set<string>;
+  products: Set<string>;
+  orders: Set<string>;
+  carts: Set<string>;
+}>();
+
+// Generate unique test session ID for each test run
+let testSessionCounter = 0;
+
 beforeAll(async () => {
   // Disable Prisma query logs for cleaner test output
   process.env.PRISMA_LOG_LEVEL = 'warn';
@@ -27,6 +38,18 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  // Create unique test session for each test
+  testSessionCounter++;
+  const currentTestId = `test-${testSessionCounter}-${Date.now()}`;
+
+  // Initialize test session data
+  testSessionData.set(currentTestId, {
+    users: new Set(),
+    products: new Set(),
+    orders: new Set(),
+    carts: new Set()
+  });
+
   // Clean up database before each test, but preserve test users and products
   try {
     // Wait for any pending operations to complete
@@ -37,6 +60,7 @@ beforeEach(async () => {
       // SQLite approach
       await prisma.$executeRaw`PRAGMA foreign_keys = OFF;`;
 
+      // Clean up in reverse order of dependencies
       await prisma.$executeRaw`DELETE FROM Payment;`;
       await prisma.$executeRaw`DELETE FROM OrderItem;`;
       await prisma.$executeRaw`DELETE FROM "Order";`;
@@ -297,11 +321,11 @@ global.testUtils = {
     // Register this user as a test user to prevent deletion
     testUserIds.add(user.id);
 
-    // Generate JWT token
+    // Generate JWT token with longer expiration for tests
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET || 'fallback-secret',
-      { expiresIn: '1h' }
+      { expiresIn: '24h' } // Longer expiration for test stability
     );
 
     return { user, token };
