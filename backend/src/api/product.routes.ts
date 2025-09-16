@@ -117,7 +117,7 @@ router.post('/', [
 
 // Get a specific product by ID
 router.get('/:id', [
-  param('id').isUUID().withMessage('Invalid product ID format'),
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid product ID format'),
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);

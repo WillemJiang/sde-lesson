@@ -64,18 +64,8 @@ apiRouter.use((err: any, req: express.Request, res: express.Response, next: expr
   next(err);
 });
 
-// Authentication middleware for protected routes
-apiRouter.use((req, res, next) => {
-  // Skip authentication for auth routes, health checks, and routes that handle their own auth
-  if (req.path.startsWith('/auth') ||
-      req.path === '/health' ||
-      req.path === '/info') {
-    return next();
-  }
-
-  // Apply authentication middleware to all other routes
-  authenticateToken(req, res, next);
-});
+// Remove global authentication middleware - authentication should be applied per-route
+// Each route handler should apply authenticateToken middleware as needed
 
 // Custom middleware for rate limiting simulation
 apiRouter.use((req, res, next) => {
