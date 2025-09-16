@@ -95,7 +95,7 @@ router.post('/items', [
 
 // Update cart item quantity
 router.put('/items/:id', [
-  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid cart item ID format'),
+  param('id').isUUID().withMessage('Invalid cart item ID format'),
   body('quantity').isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -140,7 +140,7 @@ router.put('/items/:id', [
 
 // Remove item from cart
 router.delete('/items/:id', [
-  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid cart item ID format'),
+  param('id').isUUID().withMessage('Invalid cart item ID format'),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);

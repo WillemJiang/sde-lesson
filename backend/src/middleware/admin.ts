@@ -16,6 +16,7 @@ const ADMIN_EMAILS = [
   'product-get-test@example.com', // For GET ID tests
   'admin-get-id@example.com', // For GET ID tests
   'admin-post-test@example.com', // For POST tests
+  'admin-order-detail@example.com', // For order detail tests
   // Support for dynamically generated test admin emails
 ];
 

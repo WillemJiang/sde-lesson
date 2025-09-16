@@ -69,12 +69,7 @@ apiRouter.use((req, res, next) => {
   // Skip authentication for auth routes, health checks, and routes that handle their own auth
   if (req.path.startsWith('/auth') ||
       req.path === '/health' ||
-      req.path === '/info' ||
-      req.path.startsWith('/cart') ||
-      req.path.startsWith('/products') ||
-      req.path.startsWith('/orders') ||
-      req.path.startsWith('/payments') ||
-      req.path.startsWith('/users')) {
+      req.path === '/info') {
     return next();
   }
 

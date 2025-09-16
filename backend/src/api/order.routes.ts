@@ -114,8 +114,8 @@ router.post('/', [
 
 // Get a specific order by ID
 router.get('/:id', [
-  param('id').isUUID().withMessage('Invalid order ID'),
-], async (req: Request, res: Response): Promise<void> => {
+  param('id').matches(/^[a-z0-9]+$/).withMessage('Invalid order ID'),
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -197,7 +197,7 @@ router.get('/user/:userId', [
   query('sortBy').optional().isIn(['created_at', 'total_amount', 'status']).withMessage('Invalid sort field'),
   query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc'),
   query('status').optional().isIn(Object.values(OrderStatus)).withMessage('Invalid order status'),
-], async (req: Request, res: Response): Promise<void> => {
+], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -236,7 +236,7 @@ router.get('/user/:userId', [
 });
 
 // Get order statistics
-router.get('/stats/summary', async (req: Request, res: Response): Promise<void> => {
+router.get('/stats/summary', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     // In a real app, you'd get this from JWT authentication and check if user is admin
     const userId = req.query.user_id as string || undefined;
