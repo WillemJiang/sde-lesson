@@ -24,10 +24,7 @@ router.get('/profile', authenticateToken, async (req: Request, res: Response): P
       return;
     }
 
-    res.json({
-      message: 'User profile retrieved successfully',
-      data: profile,
-    });
+    res.json(profile);
   } catch (error) {
     if (error instanceof Error) {
       res.status(400).json({ error: error.message });
@@ -39,17 +36,20 @@ router.get('/profile', authenticateToken, async (req: Request, res: Response): P
 
 // Update user profile
 router.put('/profile', [
-  body('first_name').optional().notEmpty().withMessage('First name cannot be empty'),
-  body('last_name').optional().notEmpty().withMessage('Last name cannot be empty'),
+  body('first_name').optional().isLength({ min: 2 }).withMessage('First name must be at least 2 characters long'),
+  body('last_name').optional().isLength({ min: 2 }).withMessage('Last name must be at least 2 characters long'),
   body('email').optional().isEmail().withMessage('Invalid email address'),
   body('phone').optional().isString(),
   body('address').optional().isString(),
 ], authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
+    // Handle invalid JSON - this will be caught by Express body parser
+    // If we get here, the JSON was parsed successfully (even if it's empty or {})
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
-    return;
+      return;
     }
 
     const userId = req.user?.userId;
@@ -59,19 +59,29 @@ router.put('/profile', [
       return;
     }
 
+    // Only allow updating specific fields, ignore extra fields
     const updateData: UpdateUserInput = {};
 
     if (req.body.first_name !== undefined) updateData.first_name = req.body.first_name;
     if (req.body.last_name !== undefined) updateData.last_name = req.body.last_name;
-    if (req.body.email !== undefined) updateData.email = req.body.email;
-    if (req.body.is_verified !== undefined) updateData.is_verified = req.body.is_verified;
+    if (req.body.phone !== undefined) updateData.phone = req.body.phone;
+    if (req.body.address !== undefined) updateData.address = req.body.address;
+    // Explicitly ignore email and is_verified updates via this endpoint
+
+    // If no valid fields to update, return current profile
+    if (Object.keys(updateData).length === 0) {
+      const profile = await userService.getUserProfile(userId);
+      if (!profile) {
+        res.status(404).json({ error: 'User profile not found' });
+        return;
+      }
+      res.json(profile);
+      return;
+    }
 
     const user = await userService.updateUser(userId, updateData);
 
-    res.json({
-      message: 'User profile updated successfully',
-      data: user,
-    });
+    res.json(user);
   } catch (error) {
     if (error instanceof Error) {
       const statusCode = error.message.includes('not found') ? 404 :

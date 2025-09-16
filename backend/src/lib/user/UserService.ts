@@ -9,7 +9,7 @@ export interface UserProfile {
   is_verified: boolean;
   created_at: Date;
   updated_at: Date;
-  order_count: number;
+  orders_count: number;
   total_spent: number;
   last_order_date?: Date | undefined;
 }
@@ -79,7 +79,7 @@ export class UserService {
     return user;
   }
 
-  async updateUser(id: string, input: UpdateUserInput): Promise<UserWithoutPassword> {
+  async updateUser(id: string, input: UpdateUserInput): Promise<UserProfile> {
     const user = await prisma.user.findUnique({
       where: { id },
     });
@@ -104,7 +104,8 @@ export class UserService {
       select: userSelect,
     });
 
-    return updatedUser;
+    // Return full profile with order statistics
+    return this.getUserProfile(id) as Promise<UserProfile>;
   }
 
   async deleteUser(id: string): Promise<void> {
@@ -166,7 +167,7 @@ export class UserService {
 
     return {
       ...user,
-      order_count,
+      orders_count: order_count,
       total_spent,
       last_order_date: last_order_date || undefined,
     };

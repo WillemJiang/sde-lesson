@@ -7,6 +7,9 @@ import dotenv from 'dotenv';
 // Import API router
 import apiRouter from './api';
 
+// Import error handler
+import { errorHandler, notFoundHandler } from './middleware/error';
+
 dotenv.config();
 
 const app = express();
@@ -32,15 +35,10 @@ app.get('/health', (req, res) => {
 app.use('/api/v1', apiRouter);
 
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+app.use(notFoundHandler);
 
 // Error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
-});
+app.use(errorHandler);
 
 if (require.main === module) {
   app.listen(PORT, () => {

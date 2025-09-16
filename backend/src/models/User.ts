@@ -25,6 +25,8 @@ export interface UpdateUserInput {
   last_name?: string;
   is_verified?: boolean;
   verification_token?: string;
+  phone?: string;
+  address?: string;
 }
 
 export const userSelect = {

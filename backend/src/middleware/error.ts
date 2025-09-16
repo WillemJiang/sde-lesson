@@ -2,11 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import Stripe from 'stripe';
 
-interface AppError extends Error {
-  statusCode?: number;
-  isOperational?: boolean;
-}
-
 export class AppError extends Error {
   statusCode: number;
   isOperational: boolean;
@@ -66,6 +61,12 @@ export const errorHandler = (
     message = 'Token expired';
   }
 
+  // Handle JSON parsing errors
+  if (error instanceof SyntaxError && 'body' in error) {
+    statusCode = 400;
+    message = 'Invalid JSON in request body';
+  }
+
   // Don't leak error details in production
   const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -118,33 +119,26 @@ const handlePrismaError = (error: Prisma.PrismaClientKnownRequestError, req: Req
 };
 
 const handleStripeError = (error: Stripe.errors.StripeError, req: Request, res: Response) => {
-  switch (error.type) {
-    case 'card_error':
-      res.status(400).json({
-        error: 'Payment failed',
-        details: error.message
-      });
-      break;
-
-    case 'invalid_request_error':
-      res.status(400).json({
-        error: 'Invalid payment request',
-        details: error.message
-      });
-      break;
-
-    case 'api_error':
-      res.status(502).json({
-        error: 'Payment service error',
-        details: 'External payment service unavailable'
-      });
-      break;
-
-    default:
-      res.status(500).json({
-        error: 'Payment processing error',
-        details: 'An unexpected error occurred during payment processing'
-      });
+  if (error instanceof Stripe.errors.StripeCardError) {
+    res.status(400).json({
+      error: 'Payment failed',
+      details: error.message
+    });
+  } else if (error instanceof Stripe.errors.StripeInvalidRequestError) {
+    res.status(400).json({
+      error: 'Invalid payment request',
+      details: error.message
+    });
+  } else if (error instanceof Stripe.errors.StripeAPIError) {
+    res.status(502).json({
+      error: 'Payment service error',
+      details: 'External payment service unavailable'
+    });
+  } else {
+    res.status(500).json({
+      error: 'Payment processing error',
+      details: 'An unexpected error occurred during payment processing'
+    });
   }
 };
 
