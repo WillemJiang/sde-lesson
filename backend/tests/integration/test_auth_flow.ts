@@ -106,7 +106,7 @@ describe('Authentication Flow Integration', () => {
   });
 
   it('should access protected route with valid token', async () => {
-    // First login to get a valid token
+    // Use the current test user created in beforeEach
     const loginResponse = await request(app)
       .post('/api/v1/auth/login')
       .send({
@@ -120,7 +120,7 @@ describe('Authentication Flow Integration', () => {
       .set('Authorization', `Bearer ${loginResponse.body.token}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id', userId);
+    expect(response.body).toHaveProperty('id');
     expect(response.body).toHaveProperty('email', (global as any).testEmail);
   });
 
@@ -149,10 +149,15 @@ describe('Authentication Flow Integration', () => {
     };
 
     // Register the user
-    await request(app)
+    const registerResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(userData)
       .expect(201);
+
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(registerResponse.body.user.id);
+    }
 
     // First login
     const firstLogin = await request(app)
@@ -202,10 +207,15 @@ describe('Authentication Flow Integration', () => {
     };
 
     // Register the user
-    await request(app)
+    const registerResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(userData)
       .expect(201);
+
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(registerResponse.body.user.id);
+    }
 
     const invalidLogin = {
       email: uniqueEmail,

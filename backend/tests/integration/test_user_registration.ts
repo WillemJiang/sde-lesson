@@ -2,11 +2,17 @@ import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import app from '../../src/index';
 
-// Declare global test utilities
+// Access global test utilities
 declare global {
   var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
     generateUniqueEmail: (prefix: string) => string;
+    generateUniqueSKU: (prefix: string) => string;
+    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+    validateToken: (token: string) => any;
   };
+  var testUserIds: Set<string>;
 }
 
 describe('User Registration and Email Verification Integration', () => {
@@ -37,6 +43,11 @@ describe('User Registration and Email Verification Integration', () => {
     expect(response.body.user).toHaveProperty('is_verified', false);
 
     userId = response.body.user.id;
+
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if ((global as any).testUserIds) {
+      (global as any).testUserIds.add(userId);
+    }
   });
 
   it('should handle email verification with JWT token (expected to fail)', async () => {
@@ -52,6 +63,11 @@ describe('User Registration and Email Verification Integration', () => {
       .post('/api/v1/auth/register')
       .send(userData)
       .expect(201);
+
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(registerResponse.body.user.id);
+    }
 
     // Use the JWT token from registration response for verification
     const verificationData = {
@@ -79,10 +95,15 @@ describe('User Registration and Email Verification Integration', () => {
     };
 
     // First register a user
-    await request(app)
+    const registerResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(userData)
       .expect(201);
+
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(registerResponse.body.user.id);
+    }
 
     // Then try to register the same user again
     await request(app)
@@ -160,5 +181,10 @@ describe('User Registration and Email Verification Integration', () => {
     expect(response.body.user).toHaveProperty('email', profileUserData.email);
     expect(response.body.user).toHaveProperty('first_name', profileUserData.first_name);
     expect(response.body.user).toHaveProperty('last_name', profileUserData.last_name);
+
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (response.body.user && response.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(response.body.user.id);
+    }
   });
 });

@@ -99,6 +99,11 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   const createOrder = async () => {
+    // Verify products are available
+    if (!productId1 || !productId2) {
+      throw new Error('Product IDs are not available');
+    }
+
     // Add items to cart
     const cartItem1 = {
       product_id: productId1,
@@ -110,13 +115,13 @@ describe('Order Management and Cancellation Integration', () => {
       quantity: 1
     };
 
-    await request(app)
+    const cartResponse1 = await request(app)
       .post('/api/v1/cart/items')
       .set('Authorization', `Bearer ${authToken}`)
       .send(cartItem1)
       .expect(201);
 
-    await request(app)
+    const cartResponse2 = await request(app)
       .post('/api/v1/cart/items')
       .set('Authorization', `Bearer ${authToken}`)
       .send(cartItem2)
@@ -146,10 +151,13 @@ describe('Order Management and Cancellation Integration', () => {
       .send(orderData)
       .expect(201);
 
-    return orderResponse.body.data.id;
+    const orderId = orderResponse.body.data.id;
+    console.log('Created order with ID:', orderId);
+    return orderId;
   };
 
   it('should create multiple orders for testing', async () => {
+    // Create orders for user 1
     orderId1 = await createOrder();
     orderId2 = await createOrder();
 
@@ -189,9 +197,16 @@ describe('Order Management and Cancellation Integration', () => {
       .expect(201);
 
     orderId3 = orderResponse.body.data.id;
+
+    // Verify order IDs are defined
+    console.log('Created order IDs:', { orderId1, orderId2, orderId3 });
   });
 
   it('should list all user orders', async () => {
+    // First create some orders for the current user
+    const order1 = await createOrder();
+    const order2 = await createOrder();
+
     const response = await request(app)
       .get('/api/v1/orders')
       .set('Authorization', `Bearer ${authToken}`)
@@ -207,6 +222,10 @@ describe('Order Management and Cancellation Integration', () => {
       expect(order).toHaveProperty('status');
       expect(order).toHaveProperty('total_amount');
     });
+
+    // Store order IDs for subsequent tests
+    if (!orderId1) orderId1 = order1;
+    if (!orderId2) orderId2 = order2;
   });
 
   it('should filter orders by status', async () => {
@@ -252,8 +271,20 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should cancel a pending order', async () => {
+    // Create a new order for this test
+    const testOrderId = await createOrder();
+
+    // First verify order exists and is pending
+    const initialResponse = await request(app)
+      .get(`/api/v1/orders/${testOrderId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(initialResponse.body).toHaveProperty('data');
+    expect(initialResponse.body.data).toHaveProperty('status', 'PENDING');
+
     const response = await request(app)
-      .post(`/api/v1/orders/${orderId1}/cancel`)
+      .post(`/api/v1/orders/${testOrderId}/cancel`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
@@ -261,11 +292,22 @@ describe('Order Management and Cancellation Integration', () => {
     expect(response.body.data).toHaveProperty('status', 'CANCELLED');
     expect(response.body).toHaveProperty('message');
     expect(response.body.message).toContain('Order cancelled successfully');
+
+    // Store for use in subsequent tests
+    if (!orderId1) orderId1 = testOrderId;
   });
 
   it('should verify order status after cancellation', async () => {
+    // Create and cancel an order for this test
+    const testOrderId = await createOrder();
+
+    await request(app)
+      .post(`/api/v1/orders/${testOrderId}/cancel`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
     const response = await request(app)
-      .get(`/api/v1/orders/${orderId1}`)
+      .get(`/api/v1/orders/${testOrderId}`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
@@ -281,16 +323,28 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should prevent unauthorized order cancellation', async () => {
+    // Create an order for User 1
+    const user1OrderId = await createOrder();
+
     // User 2 trying to cancel User 1's order
     await request(app)
-      .post(`/api/v1/orders/${orderId2}/cancel`)
+      .post(`/api/v1/orders/${user1OrderId}/cancel`)
       .set('Authorization', `Bearer ${authToken2}`)
       .expect(403);
   });
 
   it('should prevent cancellation of already cancelled order', async () => {
+    // Create and cancel an order for this test
+    const testOrderId = await createOrder();
+
     await request(app)
-      .post(`/api/v1/orders/${orderId1}/cancel`)
+      .post(`/api/v1/orders/${testOrderId}/cancel`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    // Try to cancel again
+    await request(app)
+      .post(`/api/v1/orders/${testOrderId}/cancel`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(400);
   });
@@ -325,13 +379,16 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should search orders by ID', async () => {
+    // Create a new order for this test
+    const testOrderId = await createOrder();
+
     const response = await request(app)
-      .get(`/api/v1/orders/${orderId2}`)
+      .get(`/api/v1/orders/${testOrderId}`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('data');
-    expect(response.body.data).toHaveProperty('id', orderId2);
+    expect(response.body.data).toHaveProperty('id', testOrderId);
     expect(response.body.data).toHaveProperty('status');
     expect(response.body.data).toHaveProperty('total_amount');
     expect(response.body.data).toHaveProperty('items');
@@ -351,12 +408,15 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should validate order cancellation reason', async () => {
+    // Create a new order for this test
+    const testOrderId = await createOrder();
+
     const cancelData = {
       reason: 'Customer requested cancellation'
     };
 
     const response = await request(app)
-      .post(`/api/v1/orders/${orderId2}/cancel`)
+      .post(`/api/v1/orders/${testOrderId}/cancel`)
       .set('Authorization', `Bearer ${authToken}`)
       .send(cancelData)
       .expect(200);
@@ -367,6 +427,10 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should handle bulk order operations', async () => {
+    // Create a few orders first
+    await createOrder();
+    await createOrder();
+
     const response = await request(app)
       .get('/api/v1/orders')
       .set('Authorization', `Bearer ${authToken}`)
@@ -400,6 +464,14 @@ describe('Order Management and Cancellation Integration', () => {
 
     // Log for debugging - in a real test scenario, we'd need proper test data isolation
     console.log('User 2 orders:', response.body.orders.length);
-    console.log('Looking for User 1 orders:', orderId1, orderId2);
+    console.log('User 1 order IDs:', { orderId1, orderId2, orderId3 });
+
+    // Verify that User 2's orders don't contain User 1's order IDs
+    const user2OrderIds = response.body.orders.map((order: any) => order.id);
+    const user1OrderIds = [orderId1, orderId2].filter(Boolean);
+
+    // Check that there's no overlap between User 1 and User 2 orders
+    const hasOverlap = user1OrderIds.some(id => user2OrderIds.includes(id));
+    expect(hasOverlap).toBe(false);
   });
 });

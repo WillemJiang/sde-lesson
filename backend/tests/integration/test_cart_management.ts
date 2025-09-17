@@ -295,20 +295,24 @@ describe('Shopping Cart Management Integration', () => {
       quantity: 1
     };
 
-    await request(app)
+    const response1 = await request(app)
       .post('/api/v1/cart/items')
       .set('Authorization', `Bearer ${authToken}`)
       .send(cartItem1)
       .expect(201);
 
-    const addResponse = await request(app)
+    const response2 = await request(app)
       .post('/api/v1/cart/items')
       .set('Authorization', `Bearer ${authToken}`)
       .send(cartItem2)
       .expect(201);
 
     // Get the cart item ID to remove
-    const addedItem = addResponse.body.data.items.find((item: any) => item.product_id === productId2);
+    const addedItem = response2.body.data.items.find((item: any) => item.product_id === productId2);
+
+    if (!addedItem) {
+      throw new Error('Could not find cart item to remove');
+    }
     const itemId = addedItem.id;
 
     await request(app)
