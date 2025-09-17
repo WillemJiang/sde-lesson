@@ -183,9 +183,18 @@ describe('GET /users/profile', () => {
   });
 
   it('should include proper timestamp fields', async () => {
+    // Create a fresh user for this test to ensure authentication works
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('timestamp-test'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Timestamp',
+      last_name: 'User',
+      is_verified: true
+    });
+
     const response = await request(app)
       .get('/api/v1/users/profile')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .expect(200);
 
     const profile = response.body;
@@ -193,7 +202,7 @@ describe('GET /users/profile', () => {
     // Verify timestamp format
     expect(new Date(profile.created_at)).toBeInstanceOf(Date);
     expect(new Date(profile.updated_at)).toBeInstanceOf(Date);
-    
+
     // Created at should be before or equal to updated at
     expect(new Date(profile.created_at).getTime()).toBeLessThanOrEqual(
       new Date(profile.updated_at).getTime()

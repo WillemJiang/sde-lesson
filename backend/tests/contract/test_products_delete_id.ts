@@ -150,13 +150,54 @@ describe('DELETE /products/{id}', () => {
   });
 
   it('should not affect other products when deleting one', async () => {
+    // Create fresh products specifically for this test to ensure isolation
+    const productToDeleteData = {
+      name: 'Product to Delete - Isolation Test',
+      description: 'This product will be deleted',
+      price: 29.99,
+      stock_quantity: 50,
+      sku: testUtils.generateUniqueSKU('DELETE-ISOLATION'),
+      category: 'electronics'
+    };
+
+    const deleteCreateResponse = await request(app)
+      .post('/api/v1/products')
+      .set('Authorization', `Bearer ${adminAuthToken}`)
+      .send(productToDeleteData)
+      .expect(201);
+
+    const productToDeleteId = deleteCreateResponse.body.data.id;
+
+    const productToKeepData = {
+      name: 'Product to Keep - Isolation Test',
+      description: 'This product will not be deleted',
+      price: 39.99,
+      stock_quantity: 25,
+      sku: testUtils.generateUniqueSKU('KEEP-ISOLATION'),
+      category: 'books'
+    };
+
+    const keepCreateResponse = await request(app)
+      .post('/api/v1/products')
+      .set('Authorization', `Bearer ${adminAuthToken}`)
+      .send(productToKeepData)
+      .expect(201);
+
+    const productToKeepId = keepCreateResponse.body.data.id;
+
+    // Delete one product
+    await request(app)
+      .delete(`/api/v1/products/${productToDeleteId}`)
+      .set('Authorization', `Bearer ${adminAuthToken}`)
+      .expect(204);
+
     // Verify the product we intended to keep still exists
     const response = await request(app)
-      .get(`/api/v1/products/${productIdToKeep}`)
+      .get(`/api/v1/products/${productToKeepId}`)
       .expect(200);
 
-    expect(response.body.data).toHaveProperty('id', productIdToKeep);
-    expect(response.body.data).toHaveProperty('name', 'Product to Keep');
+    expect(response.body.data).toHaveProperty('id', productToKeepId);
+    expect(response.body.data).toHaveProperty('name', 'Product to Keep - Isolation Test');
   });
 
   it('should allow deletion of product with zero stock', async () => {

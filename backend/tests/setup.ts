@@ -50,119 +50,57 @@ beforeEach(async () => {
     carts: new Set()
   });
 
-  // Clean up database before each test, but preserve test users and products
+  // Clean up database before each test - ULTRA ISOLATION APPROACH
   try {
     // Wait for any pending operations to complete
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Use raw SQL to disable foreign key constraints and clean up
-    if (process.env.DATABASE_URL?.includes('sqlite')) {
-      // SQLite approach
-      await prisma.$executeRaw`PRAGMA foreign_keys = OFF;`;
+    // SQLite approach - ultra aggressive cleanup
+    await prisma.$executeRaw`PRAGMA foreign_keys = OFF;`;
 
-      // Clean up in reverse order of dependencies
-      await prisma.$executeRaw`DELETE FROM Payment;`;
-      await prisma.$executeRaw`DELETE FROM OrderItem;`;
-      await prisma.$executeRaw`DELETE FROM "Order";`;
-      await prisma.$executeRaw`DELETE FROM CartItem;`;
-      await prisma.$executeRaw`DELETE FROM ShoppingCart;`;
-
-      // Delete non-test products
-      if (testProductIds.size > 0) {
-        const productIds = Array.from(testProductIds);
-        const placeholders = productIds.map(() => '?').join(',');
-        await prisma.$executeRawUnsafe(`DELETE FROM Product WHERE id NOT IN (${placeholders})`, ...productIds);
-      } else {
-        await prisma.$executeRaw`DELETE FROM Product;`;
-      }
-
-      // Delete non-test users
-      if (testUserIds.size > 0) {
-        const userIds = Array.from(testUserIds);
-        const placeholders = userIds.map(() => '?').join(',');
-        await prisma.$executeRawUnsafe(`DELETE FROM "User" WHERE id NOT IN (${placeholders})`, ...userIds);
-      } else {
-        await prisma.$executeRaw`DELETE FROM "User";`;
-      }
-
-      await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
-    } else {
-      // PostgreSQL approach - use proper deletion order to respect foreign key constraints
+    // Clean up ALL data for complete isolation - use try/catch for each table
+    const tables = ['Payment', 'OrderItem', 'Order', 'CartItem', 'ShoppingCart', 'Product', 'User'];
+    for (const table of tables) {
       try {
-        // Delete in reverse order of dependencies to respect foreign key constraints
-        await prisma.payment.deleteMany();
-        await prisma.orderItem.deleteMany();
-        await prisma.order.deleteMany();
-        await prisma.cartItem.deleteMany();
-        await prisma.shoppingCart.deleteMany();
-
-        // Only delete products that are not test products
-        if (testProductIds.size > 0) {
-          await prisma.product.deleteMany({
-            where: {
-              id: {
-                notIn: Array.from(testProductIds)
-              }
-            }
-          });
-        } else {
-          await prisma.product.deleteMany();
-        }
-
-        // Only delete users that are not test users
-        if (testUserIds.size > 0) {
-          await prisma.user.deleteMany({
-            where: {
-              id: {
-                notIn: Array.from(testUserIds)
-              }
-            }
-          });
-        } else {
-          await prisma.user.deleteMany();
-        }
+        await prisma.$executeRaw`DELETE FROM ${table};`;
       } catch (error) {
-        // If there are still foreign key constraint issues, use raw SQL
-        if (error instanceof Error && error.message.includes('foreign key constraint')) {
-          await prisma.$executeRaw`SET CONSTRAINTS ALL DEFERRED;`;
-          await prisma.payment.deleteMany();
-          await prisma.orderItem.deleteMany();
-          await prisma.order.deleteMany();
-          await prisma.cartItem.deleteMany();
-          await prisma.shoppingCart.deleteMany();
-
-          if (testProductIds.size > 0) {
-            await prisma.product.deleteMany({
-              where: {
-                id: {
-                  notIn: Array.from(testProductIds)
-                }
-              }
-            });
-          } else {
-            await prisma.product.deleteMany();
-          }
-
-          if (testUserIds.size > 0) {
-            await prisma.user.deleteMany({
-              where: {
-                id: {
-                  notIn: Array.from(testUserIds)
-                }
-              }
-            });
-          } else {
-            await prisma.user.deleteMany();
-          }
-          await prisma.$executeRaw`SET CONSTRAINTS ALL IMMEDIATE;`;
-        } else {
-          throw error;
-        }
+        // Table might not exist, continue with next table
+        console.log(`Table ${table} cleanup skipped:`, (error as Error)?.message || error);
       }
     }
 
-    // Final delay to ensure all cleanup is complete
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Reset ALL auto-increment counters
+    try {
+      await prisma.$executeRaw`DELETE FROM sqlite_sequence;`;
+    } catch (error) {
+      console.log('SQLite sequence reset skipped:', (error as Error)?.message || error);
+    }
+
+    await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
+
+    // Additional safety: Use Prisma deleteMany for tables that exist
+    try {
+      await prisma.orderItem.deleteMany();
+      await prisma.order.deleteMany();
+      await prisma.cartItem.deleteMany();
+      await prisma.shoppingCart.deleteMany();
+      await prisma.product.deleteMany();
+      await prisma.user.deleteMany();
+      try {
+        await prisma.payment.deleteMany();
+      } catch (e) {
+        // Payment table might not exist
+      }
+    } catch (error) {
+      console.log('Prisma cleanup error:', error);
+    }
+
+    // Clear all tracking sets
+    testUserIds.clear();
+    testProductIds.clear();
+
+    // Extended delay to ensure cleanup is complete
+    await new Promise(resolve => setTimeout(resolve, 500));
   } catch (error) {
     // If tables don't exist or other errors, just continue
     console.log('Database cleanup skipped:', error);
@@ -170,74 +108,26 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  // Clean up all test users and products after all tests complete
+  // Final comprehensive cleanup after all tests complete
   try {
-    // First delete all dependent data for test users
-    await prisma.payment.deleteMany({
-      where: {
-        order: {
-          user_id: {
-            in: Array.from(testUserIds)
-          }
-        }
-      }
-    });
+    // Clean up all remaining data - SQLite approach with error handling
+    await prisma.$executeRaw`PRAGMA foreign_keys = OFF;`;
 
-    await prisma.orderItem.deleteMany({
-      where: {
-        order: {
-          user_id: {
-            in: Array.from(testUserIds)
-          }
-        }
+    const tables = ['Payment', 'OrderItem', 'Order', 'CartItem', 'ShoppingCart', 'Product', 'User'];
+    for (const table of tables) {
+      try {
+        await prisma.$executeRaw`DELETE FROM ${table};`;
+      } catch (error) {
+        // Table might not exist, continue with next table
       }
-    });
+    }
 
-    await prisma.order.deleteMany({
-      where: {
-        user_id: {
-          in: Array.from(testUserIds)
-        }
-      }
-    });
+    await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
 
-    await prisma.cartItem.deleteMany({
-      where: {
-        cart: {
-          user_id: {
-            in: Array.from(testUserIds)
-          }
-        }
-      }
-    });
-
-    await prisma.shoppingCart.deleteMany({
-      where: {
-        user_id: {
-          in: Array.from(testUserIds)
-        }
-      }
-    });
-
-    // Now delete the test users
-    await prisma.user.deleteMany({
-      where: {
-        id: {
-          in: Array.from(testUserIds)
-        }
-      }
-    });
+    // Clear tracking sets
     testUserIds.clear();
-
-    // Delete test products
-    await prisma.product.deleteMany({
-      where: {
-        id: {
-          in: Array.from(testProductIds)
-        }
-      }
-    });
     testProductIds.clear();
+    testSessionData.clear();
   } catch (error) {
     console.log('Final cleanup failed:', error);
   }

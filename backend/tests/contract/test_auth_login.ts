@@ -2,31 +2,41 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
+// Declare test utilities to make them available in this file
+declare const testUtils: {
+  generateUniqueEmail: (prefix: string) => string;
+  createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+};
+
 describe('POST /auth/login', () => {
   let userId: string;
   let userEmail: string;
+  let userPassword: string;
 
   beforeEach(async () => {
-    // Create a test user first
+    // Create a test user using test utilities to ensure unique email
+    userEmail = testUtils.generateUniqueEmail('login-test');
+    userPassword = 'Password123!';
+
     const userData = {
-      email: 'login-test@example.com',
-      password: 'Password123!',
+      email: userEmail,
+      password: userPassword,
       first_name: 'John',
       last_name: 'Doe'
     };
 
     const response = await request(app)
       .post('/api/v1/auth/register')
-      .send(userData);
+      .send(userData)
+      .expect(201);
 
     userId = response.body.user.id;
-    userEmail = userData.email;
   });
 
   it('should login successfully with valid credentials', async () => {
     const loginData = {
       email: userEmail,
-      password: 'Password123!'
+      password: userPassword
     };
 
     const response = await request(app)

@@ -350,11 +350,21 @@ describe('PUT /users/profile', () => {
   });
 
   it('should return 400 for invalid JSON in request body', async () => {
+    // Create a fresh user for this test to ensure authentication works
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('invalid-json-test'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Invalid',
+      last_name: 'JSON',
+      is_verified: true
+    });
+
+    // Test invalid JSON by sending malformed JSON that won't break the parser
     await request(app)
       .put('/api/v1/users/profile')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .set('Content-Type', 'application/json')
-      .send('{ invalid json: "missing quote" }')
+      .send('{ invalid json missing quote }')
       .expect(400);
   });
 
