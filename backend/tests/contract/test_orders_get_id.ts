@@ -94,6 +94,10 @@ describe('GET /orders/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(orderData);
 
+    // Ensure order was created successfully
+    if (orderResponse.status !== 201 || !orderResponse.body.data) {
+      throw new Error('Failed to create test order in beforeEach');
+    }
     orderId = orderResponse.body.data.id;
   });
 

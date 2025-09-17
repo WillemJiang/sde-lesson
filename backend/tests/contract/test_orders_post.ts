@@ -1,12 +1,14 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
 
 // Declare testUtils to make it available in this file
 declare const testUtils: {
   generateUniqueEmail: (prefix: string) => string;
   generateUniqueSKU: (prefix: string) => string;
   createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+  createProduct: (productData: any) => Promise<any>;
 };
 
 describe('POST /orders', () => {
@@ -16,40 +18,40 @@ describe('POST /orders', () => {
   let unverifiedUserToken: string;
 
   beforeEach(async () => {
-    // Generate unique emails for each test run
-    const userEmail = testUtils.generateUniqueEmail('order-create');
-    const unverifiedUserEmail = testUtils.generateUniqueEmail('unverified-order');
-    const adminEmail = testUtils.generateUniqueEmail('admin-order-create');
+    // Create users with proper hashed passwords using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
 
-    // Create regular user with preserved token
     const userResult = await testUtils.createTestUserWithToken({
-      email: userEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('order-create'),
+      password_hash: hashedPassword,
       first_name: 'John',
-      last_name: 'Doe'
+      last_name: 'Doe',
+      is_verified: true
     });
     authToken = userResult.token;
 
     // Create unverified user with preserved token
     const unverifiedResult = await testUtils.createTestUserWithToken({
-      email: unverifiedUserEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('unverified-order'),
+      password_hash: hashedPassword,
       first_name: 'Jane',
-      last_name: 'Doe'
+      last_name: 'Doe',
+      is_verified: false
     });
     unverifiedUserToken = unverifiedResult.token;
 
     // Create admin user with preserved token
     const adminResult = await testUtils.createTestUserWithToken({
-      email: adminEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('admin-order-create'),
+      password_hash: hashedPassword,
       first_name: 'Admin',
       last_name: 'User',
-      role: 'ADMIN' // Add admin role
+      is_verified: true,
+      role: 'ADMIN'
     });
     adminAuthToken = adminResult.token;
 
-    // Create test product
+    // Create test product using test utilities
     const productData = {
       name: 'Test Product for Order Creation',
       description: 'A test product for order creation testing',
@@ -59,12 +61,7 @@ describe('POST /orders', () => {
       category: 'electronics'
     };
 
-    const createResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(productData);
-
-    productId = createResponse.body.data.id;
+    productId = (await testUtils.createProduct(productData)).id;
   });
 
   it('should create order successfully with valid data', async () => {
@@ -226,6 +223,15 @@ describe('POST /orders', () => {
   });
 
   it('should return 400 for incomplete shipping address', async () => {
+    // Create a new user with fresh token for this test to avoid authentication issues
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('incomplete-address'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Test',
+      last_name: 'User',
+      is_verified: true
+    });
+
     const orderData = {
       shipping_address: {
         street: '123 Main St',
@@ -243,35 +249,22 @@ describe('POST /orders', () => {
 
     await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send(orderData)
       .expect(400);
   });
 
   it('should return 400 for empty cart', async () => {
-    // Create a new user with empty cart
-    const newUserData = {
-      email: 'empty-cart-user@example.com',
-      password: 'Password123!',
+    // Create a new user with empty cart using test utilities
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('empty-cart'),
+      password_hash: await bcrypt.hash('Password123!', 10),
       first_name: 'Empty',
-      last_name: 'Cart'
-    };
+      last_name: 'Cart',
+      is_verified: true
+    });
 
-    let newUserAuthTokenResponse = await request(app)
-      .post('/api/v1/auth/register')
-      .send(newUserData);
-
-    // If user already exists, login instead
-    if (newUserAuthTokenResponse.status === 409) {
-      newUserAuthTokenResponse = await request(app)
-        .post('/api/v1/auth/login')
-        .send({
-          email: newUserData.email,
-          password: newUserData.password
-        });
-    }
-
-    const newUserAuthToken = newUserAuthTokenResponse.body.token;
+    const newUserAuthToken = freshUserResult.token;
 
     const orderData = {
       shipping_address: {
@@ -298,10 +291,19 @@ describe('POST /orders', () => {
   });
 
   it('should calculate correct total amount from cart items', async () => {
+    // Create a fresh user for this test to avoid authentication issues
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('calculate-total'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Calculate',
+      last_name: 'Total',
+      is_verified: true
+    });
+
     // Add specific items to cart
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send({
         product_id: productId,
         quantity: 3
@@ -311,7 +313,7 @@ describe('POST /orders', () => {
     // Get cart to verify total
     const cartResponse = await request(app)
       .get('/api/v1/cart')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .expect(200);
 
     const expectedTotal = cartResponse.body.data.total_amount;
@@ -335,7 +337,7 @@ describe('POST /orders', () => {
 
     const response = await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send(orderData)
       .expect(201);
 
@@ -343,10 +345,19 @@ describe('POST /orders', () => {
   });
 
   it('should handle different shipping and billing addresses', async () => {
+    // Create a fresh user for this test to avoid authentication issues
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('different-addresses'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Different',
+      last_name: 'Addresses',
+      is_verified: true
+    });
+
     // Add item to cart
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send({
         product_id: productId,
         quantity: 1
@@ -372,7 +383,7 @@ describe('POST /orders', () => {
 
     const response = await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send(orderData)
       .expect(201);
 

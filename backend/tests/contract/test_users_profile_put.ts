@@ -345,7 +345,7 @@ describe('PUT /users/profile', () => {
       .put('/api/v1/users/profile')
       .set('Authorization', `Bearer ${authToken}`)
       .set('Content-Type', 'application/json')
-      .send('invalid json')
+      .send('{ invalid json: "missing quote" }')
       .expect(400);
   });
 

@@ -1,12 +1,14 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
 
 // Declare testUtils to make it available in this file
 declare const testUtils: {
   generateUniqueEmail: (prefix: string) => string;
   generateUniqueSKU: (prefix: string) => string;
   createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+  createProduct: (productData: any) => Promise<any>;
 };
 
 describe('DELETE /products/{id}', () => {
@@ -16,29 +18,29 @@ describe('DELETE /products/{id}', () => {
   let productIdToKeep: string;
 
   beforeEach(async () => {
-    // Generate unique emails for each test run
-    const adminEmail = testUtils.generateUniqueEmail('admin-delete-test');
-    const userEmail = testUtils.generateUniqueEmail('regular-delete-test');
-
-    // Create admin user with preserved token
+    // Create admin user with preserved token using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
     const adminResult = await testUtils.createTestUserWithToken({
-      email: adminEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('admin-delete-test'),
+      password_hash: hashedPassword,
       first_name: 'Admin',
-      last_name: 'User'
+      last_name: 'User',
+      is_verified: true,
+      role: 'ADMIN'
     });
     adminAuthToken = adminResult.token;
 
     // Create regular user with preserved token
     const userResult = await testUtils.createTestUserWithToken({
-      email: userEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('regular-delete-test'),
+      password_hash: hashedPassword,
       first_name: 'Regular',
-      last_name: 'User'
+      last_name: 'User',
+      is_verified: true
     });
     userAuthToken = userResult.token;
 
-    // Create test products
+    // Create test products using test utilities
     const productToDeleteData = {
       name: 'Product to Delete',
       description: 'This product will be deleted',
@@ -48,12 +50,7 @@ describe('DELETE /products/{id}', () => {
       category: 'electronics'
     };
 
-    const createDeleteResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(productToDeleteData);
-
-    productIdToDelete = createDeleteResponse.body.data.id;
+    productIdToDelete = (await testUtils.createProduct(productToDeleteData)).id;
 
     const productToKeepData = {
       name: 'Product to Keep',
@@ -64,12 +61,7 @@ describe('DELETE /products/{id}', () => {
       category: 'books'
     };
 
-    const createKeepResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(productToKeepData);
-
-    productIdToKeep = createKeepResponse.body.data.id;
+    productIdToKeep = (await testUtils.createProduct(productToKeepData)).id;
   });
 
   it('should delete product successfully with admin privileges', async () => {
