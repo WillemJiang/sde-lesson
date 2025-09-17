@@ -1,12 +1,14 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
 
 // Declare testUtils to make it available in this file
 declare const testUtils: {
   generateUniqueEmail: (prefix: string) => string;
   generateUniqueSKU: (prefix: string) => string;
   createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+  createProduct: (productData: any) => Promise<any>;
 };
 
 describe('GET /orders', () => {
@@ -15,30 +17,29 @@ describe('GET /orders', () => {
   let productId: string;
 
   beforeEach(async () => {
-    // Generate unique emails for each test run
-    const userEmail = testUtils.generateUniqueEmail('orders-test');
-    const adminEmail = testUtils.generateUniqueEmail('admin-orders');
-
-    // Create regular user with preserved token
+    // Create regular user with preserved token using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
     const userResult = await testUtils.createTestUserWithToken({
-      email: userEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('orders-test'),
+      password_hash: hashedPassword,
       first_name: 'John',
-      last_name: 'Doe'
+      last_name: 'Doe',
+      is_verified: true
     });
     authToken = userResult.token;
 
-    // Create admin user with preserved token
+    // Create admin user with preserved token using test utilities
     const adminResult = await testUtils.createTestUserWithToken({
-      email: adminEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('admin-orders'),
+      password_hash: hashedPassword,
       first_name: 'Admin',
       last_name: 'User',
-      role: 'ADMIN' // Add admin role
+      is_verified: true,
+      role: 'ADMIN'
     });
     adminAuthToken = adminResult.token;
 
-    // Create test product
+    // Create test product using test utilities
     const productData = {
       name: 'Test Product for Orders',
       description: 'A test product for order testing',
@@ -48,12 +49,7 @@ describe('GET /orders', () => {
       category: 'electronics'
     };
 
-    const createResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(productData);
-
-    productId = createResponse.body.data.id;
+    productId = (await testUtils.createProduct(productData)).id;
   });
 
   it('should return empty orders list for new user', async () => {
@@ -136,12 +132,34 @@ describe('GET /orders', () => {
   });
 
   it('should return orders with custom pagination', async () => {
+    // Create a unique user for this test to ensure isolation
+    const testUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('pagination-test'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Pagination',
+      last_name: 'User',
+      is_verified: true
+    });
+    const testAuthToken = testUserResult.token;
+
+    // Create a unique product for this test
+    const testProductData = {
+      name: 'Pagination Test Product',
+      description: 'Product for pagination testing',
+      price: 99.99,
+      stock_quantity: 50,
+      sku: testUtils.generateUniqueSKU('PAGINATION-TEST'),
+      category: 'books'
+    };
+
+    const testProductId = (await testUtils.createProduct(testProductData)).id;
+
     // Create first order
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .send({
-        product_id: productId,
+        product_id: testProductId,
         quantity: 2
       })
       .expect(201);
@@ -165,16 +183,16 @@ describe('GET /orders', () => {
 
     await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .send(firstOrderData)
       .expect(201);
 
     // Create second order
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .send({
-        product_id: productId,
+        product_id: testProductId,
         quantity: 1
       })
       .expect(201);
@@ -198,14 +216,14 @@ describe('GET /orders', () => {
 
     await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .send(secondOrderData)
       .expect(201);
 
     // Get orders with custom pagination
     const response = await request(app)
       .get('/api/v1/orders?page=1&limit=10')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .expect(200);
 
     expect(response.body.pagination.page).toBe(1);

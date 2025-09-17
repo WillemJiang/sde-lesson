@@ -3,17 +3,13 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 import bcrypt from 'bcryptjs';
 
-// Declare test utilities globally
-declare global {
-  var testUtils: {
-    createUser: (userData: any) => Promise<any>;
-    createProduct: (productData: any) => Promise<any>;
-    generateUniqueEmail: (prefix: string) => string;
-    generateUniqueSKU: (prefix: string) => string;
-    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
-    validateToken: (token: string) => any;
-  };
-}
+// Declare test utilities to make them available in this file
+declare const testUtils: {
+  generateUniqueEmail: (prefix: string) => string;
+  generateUniqueSKU: (prefix: string) => string;
+  createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+  createProduct: (productData: any) => Promise<any>;
+};
 
 describe('GET /cart', () => {
   let authToken: string;
@@ -23,8 +19,8 @@ describe('GET /cart', () => {
   beforeEach(async () => {
     // Create regular user using test utilities
     const hashedPassword = await bcrypt.hash('Password123!', 10);
-    const userResult = await global.testUtils.createTestUserWithToken({
-      email: global.testUtils.generateUniqueEmail('cart-get'),
+    const userResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('cart-get'),
       password_hash: hashedPassword,
       first_name: 'John',
       last_name: 'Doe',
@@ -33,8 +29,8 @@ describe('GET /cart', () => {
     authToken = userResult.token;
 
     // Create admin user using test utilities
-    const adminResult = await global.testUtils.createTestUserWithToken({
-      email: global.testUtils.generateUniqueEmail('admin-cart-get'),
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('admin-cart-get'),
       password_hash: hashedPassword,
       first_name: 'Admin',
       last_name: 'User',
@@ -49,12 +45,12 @@ describe('GET /cart', () => {
       description: 'A test product for cart operations',
       price: 49.99,
       stock_quantity: 100,
-      sku: global.testUtils.generateUniqueSKU('CART-TEST'),
+      sku: testUtils.generateUniqueSKU('CART-TEST'),
       category: 'electronics',
       is_active: true
     };
 
-    productId = (await global.testUtils.createProduct(productData)).id;
+    productId = (await testUtils.createProduct(productData)).id;
   });
 
   it('should return empty cart for new user', async () => {
@@ -153,7 +149,7 @@ describe('GET /cart', () => {
       description: 'Second test product for cart',
       price: 29.99,
       stock_quantity: 50,
-      sku: global.testUtils.generateUniqueSKU('CART-TEST-2'),
+      sku: testUtils.generateUniqueSKU('CART-TEST-2'),
       category: 'books',
       is_active: true
     };

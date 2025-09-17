@@ -1,12 +1,14 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
 
 // Declare testUtils to make it available in this file
 declare const testUtils: {
   generateUniqueEmail: (prefix: string) => string;
   generateUniqueSKU: (prefix: string) => string;
   createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+  createProduct: (productData: any) => Promise<any>;
 };
 
 describe('POST /orders/{id}/cancel', () => {
@@ -18,40 +20,39 @@ describe('POST /orders/{id}/cancel', () => {
   let processingOrderId: string;
 
   beforeEach(async () => {
-    // Generate unique emails for each test run
-    const userEmail = testUtils.generateUniqueEmail('order-cancel');
-    const otherUserEmail = testUtils.generateUniqueEmail('other-cancel');
-    const adminEmail = testUtils.generateUniqueEmail('admin-order-cancel');
-
-    // Create regular user with preserved token
+    // Create regular user with preserved token using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
     const userResult = await testUtils.createTestUserWithToken({
-      email: userEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('order-cancel'),
+      password_hash: hashedPassword,
       first_name: 'John',
-      last_name: 'Doe'
+      last_name: 'Doe',
+      is_verified: true
     });
     authToken = userResult.token;
 
     // Create another user for testing access control with preserved token
     const otherUserResult = await testUtils.createTestUserWithToken({
-      email: otherUserEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('other-cancel'),
+      password_hash: hashedPassword,
       first_name: 'Jane',
-      last_name: 'Smith'
+      last_name: 'Smith',
+      is_verified: true
     });
     otherUserAuthToken = otherUserResult.token;
 
     // Create admin user with preserved token
     const adminResult = await testUtils.createTestUserWithToken({
-      email: adminEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('admin-order-cancel'),
+      password_hash: hashedPassword,
       first_name: 'Admin',
       last_name: 'User',
-      role: 'ADMIN' // Add admin role
+      is_verified: true,
+      role: 'ADMIN'
     });
     adminAuthToken = adminResult.token;
 
-    // Create test product
+    // Create test product using test utilities
     const productData = {
       name: 'Test Product for Order Cancellation',
       description: 'A test product for order cancellation testing',
@@ -61,12 +62,7 @@ describe('POST /orders/{id}/cancel', () => {
       category: 'electronics'
     };
 
-    const createResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(productData);
-
-    productId = createResponse.body.data.id;
+    productId = (await testUtils.createProduct(productData)).id;
 
     // Create a pending order for testing
     await request(app)

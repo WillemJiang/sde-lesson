@@ -1,12 +1,14 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
 
 // Declare testUtils to make it available in this file
 declare const testUtils: {
   generateUniqueEmail: (prefix: string) => string;
   generateUniqueSKU: (prefix: string) => string;
   createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+  createProduct: (productData: any) => Promise<any>;
 };
 
 describe('PUT /products/{id}', () => {
@@ -15,29 +17,29 @@ describe('PUT /products/{id}', () => {
   let productId: string;
 
   beforeEach(async () => {
-    // Generate unique emails for each test run
-    const adminEmail = testUtils.generateUniqueEmail('admin-put-test');
-    const userEmail = testUtils.generateUniqueEmail('regular-put-test');
-
-    // Create admin user with preserved token
+    // Create admin user with preserved token using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
     const adminResult = await testUtils.createTestUserWithToken({
-      email: adminEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('admin-put-test'),
+      password_hash: hashedPassword,
       first_name: 'Admin',
-      last_name: 'User'
+      last_name: 'User',
+      is_verified: true,
+      role: 'ADMIN'
     });
     adminAuthToken = adminResult.token;
 
     // Create regular user with preserved token
     const userResult = await testUtils.createTestUserWithToken({
-      email: userEmail,
-      password_hash: 'hashed_password', // Simplified for testing
+      email: testUtils.generateUniqueEmail('regular-put-test'),
+      password_hash: hashedPassword,
       first_name: 'Regular',
-      last_name: 'User'
+      last_name: 'User',
+      is_verified: true
     });
     userAuthToken = userResult.token;
 
-    // Create a test product to update
+    // Create a test product to update using test utilities
     const productData = {
       name: 'Original Product Name',
       description: 'Original product description',
@@ -47,12 +49,7 @@ describe('PUT /products/{id}', () => {
       category: 'electronics'
     };
 
-    const createResponse = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
-      .send(productData);
-
-    productId = createResponse.body.data.id;
+    productId = (await testUtils.createProduct(productData)).id;
   });
 
   it('should update product successfully with admin privileges', async () => {
