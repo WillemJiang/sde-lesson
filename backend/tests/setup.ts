@@ -79,18 +79,28 @@ beforeEach(async () => {
     await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
 
     // Additional safety: Use Prisma deleteMany for tables that exist
+    // Delete in correct order to respect foreign key constraints
     try {
-      await prisma.orderItem.deleteMany();
-      await prisma.order.deleteMany();
-      await prisma.cartItem.deleteMany();
-      await prisma.shoppingCart.deleteMany();
-      await prisma.product.deleteMany();
-      await prisma.user.deleteMany();
+      // Delete payments first (depends on orders)
       try {
         await prisma.payment.deleteMany();
       } catch (e) {
         // Payment table might not exist
       }
+
+      // Delete order items before orders
+      await prisma.orderItem.deleteMany();
+
+      // Now delete orders
+      await prisma.order.deleteMany();
+
+      // Delete cart items before carts
+      await prisma.cartItem.deleteMany();
+      await prisma.shoppingCart.deleteMany();
+
+      // Delete products and users (no foreign key dependencies)
+      await prisma.product.deleteMany();
+      await prisma.user.deleteMany();
     } catch (error) {
       console.log('Prisma cleanup error:', error);
     }
@@ -113,8 +123,9 @@ afterAll(async () => {
     // Clean up all remaining data - SQLite approach with error handling
     await prisma.$executeRaw`PRAGMA foreign_keys = OFF;`;
 
-    const tables = ['Payment', 'OrderItem', 'Order', 'CartItem', 'ShoppingCart', 'Product', 'User'];
-    for (const table of tables) {
+    // Delete in correct order to respect foreign key constraints
+    const tablesInOrder = ['Payment', 'OrderItem', 'CartItem', 'Order', 'ShoppingCart', 'Product', 'User'];
+    for (const table of tablesInOrder) {
       try {
         await prisma.$executeRaw`DELETE FROM ${table};`;
       } catch (error) {
