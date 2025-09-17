@@ -314,7 +314,7 @@ global.testUtils = {
         password_hash: userData.password_hash || 'hashedpassword',
         first_name: userData.first_name,
         last_name: userData.last_name,
-        is_verified: true,
+        is_verified: userData.is_verified !== undefined ? userData.is_verified : true,
       },
     });
 

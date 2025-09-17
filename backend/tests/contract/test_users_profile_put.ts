@@ -1,6 +1,14 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
+
+// Declare test utilities to make them available in this file
+declare const testUtils: {
+  generateUniqueEmail: (prefix: string) => string;
+  generateUniqueSKU: (prefix: string) => string;
+  createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+};
 
 describe('PUT /users/profile', () => {
   let authToken: string;
@@ -8,68 +16,37 @@ describe('PUT /users/profile', () => {
   let otherUserAuthToken: string;
 
   beforeEach(async () => {
-    // Create regular user
-    const userData = {
-      email: 'profile-update-test@example.com',
-      password: 'Password123!',
-      first_name: 'John',
-      last_name: 'Doe'
-    };
+    // Create regular user using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const userResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('profile-put'),
+      password_hash: hashedPassword,
+      first_name: 'JohnPut',
+      last_name: 'DoePut',
+      is_verified: true
+    });
+    authToken = userResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData);
+    // Create another user for testing access control using test utilities
+    const otherUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('other-profile-put'),
+      password_hash: hashedPassword,
+      first_name: 'JanePut',
+      last_name: 'SmithPut',
+      is_verified: true
+    });
+    otherUserAuthToken = otherUserResult.token;
 
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
-
-    authToken = loginResponse.body.token;
-
-    // Create another user for testing access control
-    const otherUserData = {
-      email: 'other-profile-update@example.com',
-      password: 'Password123!',
-      first_name: 'Jane',
-      last_name: 'Smith'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(otherUserData);
-
-    const otherUserLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: otherUserData.email,
-        password: otherUserData.password
-      });
-
-    otherUserAuthToken = otherUserLoginResponse.body.token;
-
-    // Create admin user
-    const adminData = {
-      email: 'admin-profile-update@example.com',
-      password: 'Password123!',
-      first_name: 'Admin',
-      last_name: 'User'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(adminData);
-
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
-
-    adminAuthToken = adminLoginResponse.body.token;
+    // Create admin user using test utilities
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('admin-profile-put'),
+      password_hash: hashedPassword,
+      first_name: 'AdminPut',
+      last_name: 'UserPut',
+      is_verified: true,
+      role: 'ADMIN'
+    });
+    adminAuthToken = adminResult.token;
   });
 
   it('should update user profile successfully', async () => {
@@ -85,7 +62,8 @@ describe('PUT /users/profile', () => {
       .expect(200);
 
     expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('email', 'profile-update-test@example.com');
+    expect(response.body).toHaveProperty('email');
+    expect(response.body.email).toContain('profile-put');
     expect(response.body).toHaveProperty('first_name', 'Johnny');
     expect(response.body).toHaveProperty('last_name', 'Doe-Smith');
     expect(response.body).toHaveProperty('is_verified');
@@ -136,7 +114,7 @@ describe('PUT /users/profile', () => {
       .expect(200);
 
     expect(response.body).toHaveProperty('first_name', 'Jonathan');
-    expect(response.body).toHaveProperty('last_name', 'Doe'); // Should remain unchanged
+    expect(response.body).toHaveProperty('last_name', 'DoePut'); // Should remain unchanged
   });
 
   it('should update only last name', async () => {
@@ -151,7 +129,7 @@ describe('PUT /users/profile', () => {
       .send(updateData)
       .expect(200);
 
-    expect(response.body).toHaveProperty('first_name', 'John'); // Should remain unchanged
+    expect(response.body).toHaveProperty('first_name', 'JohnPut'); // Should remain unchanged
     expect(response.body).toHaveProperty('last_name', 'Williams');
   });
 
@@ -213,8 +191,8 @@ describe('PUT /users/profile', () => {
       .expect(200);
 
     // Should return current profile data unchanged
-    expect(response.body).toHaveProperty('first_name', 'John');
-    expect(response.body).toHaveProperty('last_name', 'Doe');
+    expect(response.body).toHaveProperty('first_name', 'JohnPut');
+    expect(response.body).toHaveProperty('last_name', 'DoePut');
   });
 
   it('should return 400 for invalid data types', async () => {
@@ -247,7 +225,8 @@ describe('PUT /users/profile', () => {
 
     expect(response.body).toHaveProperty('first_name', 'Updated');
     expect(response.body).toHaveProperty('last_name', 'User');
-    expect(response.body).toHaveProperty('email', 'profile-update-test@example.com'); // Should remain unchanged
+    expect(response.body).toHaveProperty('email');
+    expect(response.body.email).toContain('profile-put'); // Should remain unchanged
   });
 
   it('should allow updates with special characters in names', async () => {

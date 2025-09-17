@@ -1,6 +1,14 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
+import bcrypt from 'bcryptjs';
+
+// Declare test utilities to make them available in this file
+declare const testUtils: {
+  generateUniqueEmail: (prefix: string) => string;
+  generateUniqueSKU: (prefix: string) => string;
+  createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+};
 
 describe('GET /users/profile', () => {
   let authToken: string;
@@ -8,68 +16,37 @@ describe('GET /users/profile', () => {
   let otherUserAuthToken: string;
 
   beforeEach(async () => {
-    // Create regular user
-    const userData = {
-      email: 'profile-test@example.com',
-      password: 'Password123!',
-      first_name: 'John',
-      last_name: 'Doe'
-    };
+    // Create regular user using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const userResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('profile-get'),
+      password_hash: hashedPassword,
+      first_name: 'JohnGet',
+      last_name: 'DoeGet',
+      is_verified: true
+    });
+    authToken = userResult.token;
 
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData);
+    // Create another user for testing access control using test utilities
+    const otherUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('other-profile-get'),
+      password_hash: hashedPassword,
+      first_name: 'JaneGet',
+      last_name: 'SmithGet',
+      is_verified: true
+    });
+    otherUserAuthToken = otherUserResult.token;
 
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userData.email,
-        password: userData.password
-      });
-
-    authToken = loginResponse.body.token;
-
-    // Create another user for testing access control
-    const otherUserData = {
-      email: 'other-profile@example.com',
-      password: 'Password123!',
-      first_name: 'Jane',
-      last_name: 'Smith'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(otherUserData);
-
-    const otherUserLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: otherUserData.email,
-        password: otherUserData.password
-      });
-
-    otherUserAuthToken = otherUserLoginResponse.body.token;
-
-    // Create admin user
-    const adminData = {
-      email: 'admin-profile@example.com',
-      password: 'Password123!',
-      first_name: 'Admin',
-      last_name: 'User'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(adminData);
-
-    const adminLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminData.email,
-        password: adminData.password
-      });
-
-    adminAuthToken = adminLoginResponse.body.token;
+    // Create admin user using test utilities
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('admin-profile-get'),
+      password_hash: hashedPassword,
+      first_name: 'AdminGet',
+      last_name: 'UserGet',
+      is_verified: true,
+      role: 'ADMIN'
+    });
+    adminAuthToken = adminResult.token;
   });
 
   it('should return user profile successfully', async () => {
@@ -79,9 +56,10 @@ describe('GET /users/profile', () => {
       .expect(200);
 
     expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('email', 'profile-test@example.com');
-    expect(response.body).toHaveProperty('first_name', 'John');
-    expect(response.body).toHaveProperty('last_name', 'Doe');
+    expect(response.body).toHaveProperty('email');
+    expect(response.body).toHaveProperty('first_name', 'JohnGet');
+    expect(response.body).toHaveProperty('last_name', 'DoeGet');
+    expect(response.body.email).toContain('profile-get');
     expect(response.body).toHaveProperty('is_verified');
     expect(response.body).toHaveProperty('created_at');
     expect(response.body).toHaveProperty('updated_at');
@@ -116,35 +94,26 @@ describe('GET /users/profile', () => {
       .expect(200);
 
     expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('email', 'admin-profile@example.com');
-    expect(response.body).toHaveProperty('first_name', 'Admin');
-    expect(response.body).toHaveProperty('last_name', 'User');
+    expect(response.body).toHaveProperty('email');
+    expect(response.body).toHaveProperty('first_name', 'AdminGet');
+    expect(response.body).toHaveProperty('last_name', 'UserGet');
+    expect(response.body.email).toContain('admin-profile-get');
     expect(response.body).toHaveProperty('is_verified');
     expect(response.body).toHaveProperty('orders_count');
     expect(response.body).toHaveProperty('total_spent');
   });
 
   it('should return profile with zero orders for new user', async () => {
-    // Create a new user
-    const newUserData = {
-      email: 'new-user-profile@example.com',
-      password: 'Password123!',
+    // Create a new user using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const newUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('new-user-profile'),
+      password_hash: hashedPassword,
       first_name: 'New',
-      last_name: 'User'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(newUserData);
-
-    const newUserLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: newUserData.email,
-        password: newUserData.password
-      });
-
-    const newUserAuthToken = newUserLoginResponse.body.token;
+      last_name: 'User',
+      is_verified: true
+    });
+    const newUserAuthToken = newUserResult.token;
 
     const response = await request(app)
       .get('/api/v1/users/profile')
@@ -239,26 +208,16 @@ describe('GET /users/profile', () => {
   });
 
   it('should return profile for unverified user', async () => {
-    // Create an unverified user
-    const unverifiedUserData = {
-      email: 'unverified-profile@example.com',
-      password: 'Password123!',
+    // Create an unverified user using test utilities
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const unverifiedResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('unverified-profile'),
+      password_hash: hashedPassword,
       first_name: 'Unverified',
-      last_name: 'User'
-    };
-
-    await request(app)
-      .post('/api/v1/auth/register')
-      .send(unverifiedUserData);
-
-    const unverifiedLoginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: unverifiedUserData.email,
-        password: unverifiedUserData.password
-      });
-
-    const unverifiedAuthToken = unverifiedLoginResponse.body.token;
+      last_name: 'User',
+      is_verified: false // Explicitly set to false
+    });
+    const unverifiedAuthToken = unverifiedResult.token;
 
     const response = await request(app)
       .get('/api/v1/users/profile')
