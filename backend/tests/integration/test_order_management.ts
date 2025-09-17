@@ -43,6 +43,11 @@ describe('Order Management and Cancellation Integration', () => {
 
     authToken = login1Response.body.token;
 
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (login1Response.body.user && login1Response.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(login1Response.body.user.id);
+    }
+
     // Register and login second test user
     const user2Email = global.testUtils.generateUniqueEmail('order-mgmt2');
     const user2Data = {
@@ -64,6 +69,11 @@ describe('Order Management and Cancellation Integration', () => {
       });
 
     authToken2 = login2Response.body.token;
+
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (login2Response.body.user && login2Response.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(login2Response.body.user.id);
+    }
 
     // Create test products directly using testUtils
     const product1 = await global.testUtils.createProduct({

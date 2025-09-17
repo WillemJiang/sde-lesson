@@ -94,8 +94,8 @@ beforeEach(async () => {
       console.log('Prisma cleanup error:', error);
     }
 
-    // Clear all tracking sets
-    testUserIds.clear();
+    // Don't clear tracking sets - we want to protect test users across all tests
+    // Only clear product IDs since products can be recreated
     testProductIds.clear();
 
     // Extended delay to ensure cleanup is complete
@@ -145,8 +145,7 @@ afterAll(async () => {
       // Tables might not exist, continue
     }
 
-    // Clear tracking sets
-    testUserIds.clear();
+    // Only clear product IDs and session data - keep test users protected across all test files
     testProductIds.clear();
     testSessionData.clear();
   } catch (error) {

@@ -42,6 +42,11 @@ describe('Order Creation and Payment Flow Integration', () => {
 
     authToken = loginResponse.body.token;
 
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (loginResponse.body.user && loginResponse.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(loginResponse.body.user.id);
+    }
+
     // Create test products using testUtils (avoids admin permission issues)
     const product1 = await global.testUtils.createProduct({
       name: 'Premium Headphones',

@@ -2,6 +2,15 @@ import request from 'supertest';
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from '@jest/globals';
 import app from '../../src/index';
 
+// Access global test utilities
+declare global {
+  var testUtils: {
+    generateUniqueEmail: (prefix: string) => string;
+    generateUniqueSKU: (prefix: string) => string;
+    createProduct: (productData: any) => Promise<any>;
+  };
+}
+
 describe('Product Browsing and Search Integration', () => {
   let authToken: string;
   let productId1: string;
@@ -37,65 +46,42 @@ describe('Product Browsing and Search Integration', () => {
 
     authToken = loginResponse.body.token;
 
-    // Create test products with unique SKUs for each test run
-    const skuTimestamp = `${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
-    const product1 = {
+    // Add this user to the protected testUserIds set to prevent deletion during cleanup
+    if (loginResponse.body.user && loginResponse.body.user.id && (global as any).testUserIds) {
+      (global as any).testUserIds.add(loginResponse.body.user.id);
+    }
+
+    // Create test products using testUtils (avoids admin permission issues)
+    const product1 = await global.testUtils.createProduct({
       name: 'Wireless Headphones',
       description: 'High-quality wireless headphones with noise cancellation',
       price: 99.99,
       stock_quantity: 50,
       category: 'Electronics',
-      sku: `WH-${skuTimestamp}-001`
-    };
+      sku: global.testUtils.generateUniqueSKU('WH')
+    });
 
-    const product2 = {
+    const product2 = await global.testUtils.createProduct({
       name: 'Bluetooth Speaker',
       description: 'Portable Bluetooth speaker with excellent sound quality',
       price: 49.99,
       stock_quantity: 30,
       category: 'Electronics',
-      sku: `BS-${skuTimestamp}-001`
-    };
+      sku: global.testUtils.generateUniqueSKU('BS')
+    });
 
-    const product3 = {
+    const product3 = await global.testUtils.createProduct({
       name: 'Running Shoes',
       description: 'Comfortable running shoes for athletes',
       price: 79.99,
       stock_quantity: 25,
       category: 'Sports',
-      sku: `RS-${skuTimestamp}-001`
-    };
+      sku: global.testUtils.generateUniqueSKU('RS')
+    });
 
-    const response1 = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send(product1);
-
-    if (response1.status !== 201) {
-      throw new Error(`Product 1 creation failed with status ${response1.status}: ${JSON.stringify(response1.body)}`);
-    }
-
-    const response2 = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send(product2);
-
-    if (response2.status !== 201) {
-      throw new Error(`Product 2 creation failed with status ${response2.status}: ${JSON.stringify(response2.body)}`);
-    }
-
-    const response3 = await request(app)
-      .post('/api/v1/products')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send(product3);
-
-    if (response3.status !== 201) {
-      throw new Error(`Product 3 creation failed with status ${response3.status}: ${JSON.stringify(response3.body)}`);
-    }
-
-    productId1 = response1.body.data.id;
-    productId2 = response2.body.data.id;
-    productId3 = response3.body.data.id;
+    productId1 = product1.id;
+    productId2 = product2.id;
+    productId3 = product3.id;
   });
 
   it('should retrieve all products', async () => {

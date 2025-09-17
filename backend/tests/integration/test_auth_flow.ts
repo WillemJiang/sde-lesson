@@ -2,6 +2,19 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
+// Access global test utilities
+declare global {
+  var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
+    generateUniqueEmail: (prefix: string) => string;
+    generateUniqueSKU: (prefix: string) => string;
+    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+    validateToken: (token: string) => any;
+  };
+  var testUserIds: Set<string>;
+}
+
 describe('Authentication Flow Integration', () => {
   let authToken: string;
   let userId: string;
@@ -27,6 +40,11 @@ describe('Authentication Flow Integration', () => {
       userId = registerResponse.body.user.id;
       // Store the unique email for use in tests
       (global as any).testEmail = uniqueEmail;
+
+      // Add this user to the protected testUserIds set to prevent deletion during cleanup
+      if ((global as any).testUserIds) {
+        (global as any).testUserIds.add(userId);
+      }
     } else {
       throw new Error(`User registration failed: ${registerResponse.status} - ${JSON.stringify(registerResponse.body)}`);
     }
