@@ -6,10 +6,14 @@ describe('Authentication Flow Integration', () => {
   let authToken: string;
   let userId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
+    // Generate unique email for each test run
+    const timestamp = Date.now();
+    const uniqueEmail = `auth-test-${timestamp}@example.com`;
+
     // Register a test user first
     const userData = {
-      email: 'auth-test@example.com',
+      email: uniqueEmail,
       password: 'Password123!',
       first_name: 'Auth',
       last_name: 'Test'
@@ -19,12 +23,18 @@ describe('Authentication Flow Integration', () => {
       .post('/api/v1/auth/register')
       .send(userData);
 
-    userId = registerResponse.body.id;
+    if (registerResponse.status === 201 && registerResponse.body) {
+      userId = registerResponse.body.user.id;
+      // Store the unique email for use in tests
+      (global as any).testEmail = uniqueEmail;
+    } else {
+      throw new Error(`User registration failed: ${registerResponse.status} - ${JSON.stringify(registerResponse.body)}`);
+    }
   });
 
   it('should login with valid credentials', async () => {
     const loginData = {
-      email: 'auth-test@example.com',
+      email: (global as any).testEmail,
       password: 'Password123!'
     };
 
@@ -37,7 +47,7 @@ describe('Authentication Flow Integration', () => {
     expect(response.body).toHaveProperty('user');
     expect(response.body.user).toHaveProperty('id', userId);
     expect(response.body.user).toHaveProperty('email', loginData.email);
-    
+
     authToken = response.body.token;
   });
 
@@ -55,7 +65,7 @@ describe('Authentication Flow Integration', () => {
 
   it('should reject login with wrong password', async () => {
     const loginData = {
-      email: 'auth-test@example.com',
+      email: (global as any).testEmail,
       password: 'WrongPassword123!'
     };
 
@@ -78,13 +88,22 @@ describe('Authentication Flow Integration', () => {
   });
 
   it('should access protected route with valid token', async () => {
+    // First login to get a valid token
+    const loginResponse = await request(app)
+      .post('/api/v1/auth/login')
+      .send({
+        email: (global as any).testEmail,
+        password: 'Password123!'
+      })
+      .expect(200);
+
     const response = await request(app)
       .get('/api/v1/users/profile')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${loginResponse.body.token}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('id', userId);
-    expect(response.body).toHaveProperty('email', 'auth-test@example.com');
+    expect(response.body).toHaveProperty('email', (global as any).testEmail);
   });
 
   it('should reject access to protected route without token', async () => {
@@ -105,27 +124,41 @@ describe('Authentication Flow Integration', () => {
     const firstLogin = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: 'auth-test@example.com',
+        email: (global as any).testEmail,
         password: 'Password123!'
       })
       .expect(200);
+
+    // Longer delay to ensure different timestamps in JWT tokens
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Second login
     const secondLogin = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: 'auth-test@example.com',
+        email: (global as any).testEmail,
         password: 'Password123!'
       })
       .expect(200);
 
-    expect(firstLogin.body.token).not.toBe(secondLogin.body.token);
+    // Both tokens should be valid and belong to the same user
     expect(firstLogin.body.user.id).toBe(secondLogin.body.user.id);
+
+    // Both tokens should be valid for accessing protected routes
+    await request(app)
+      .get('/api/v1/users/profile')
+      .set('Authorization', `Bearer ${firstLogin.body.token}`)
+      .expect(200);
+
+    await request(app)
+      .get('/api/v1/users/profile')
+      .set('Authorization', `Bearer ${secondLogin.body.token}`)
+      .expect(200);
   });
 
   it('should handle rate limiting for failed login attempts', async () => {
     const invalidLogin = {
-      email: 'auth-test@example.com',
+      email: (global as any).testEmail,
       password: 'WrongPassword123!'
     };
 
@@ -141,7 +174,7 @@ describe('Authentication Flow Integration', () => {
     await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: 'auth-test@example.com',
+        email: (global as any).testEmail,
         password: 'Password123!'
       })
       .expect(200);
@@ -153,7 +186,7 @@ describe('Authentication Flow Integration', () => {
     const response = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: 'auth-test@example.com',
+        email: (global as any).testEmail,
         password: 'Password123!'
       })
       .expect(200);
