@@ -163,10 +163,14 @@ declare global {
     createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
     validateToken: (token: string) => any;
   };
+  var testUserIds: Set<string>;
 }
 
 // Generate unique identifiers for tests to prevent conflicts
 let testCounter = 0;
+
+// Expose testUserIds to global scope for test files to access
+global.testUserIds = testUserIds;
 
 global.testUtils = {
   createUser: async (userData: any) => {
