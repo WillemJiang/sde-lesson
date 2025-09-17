@@ -19,12 +19,10 @@ describe('Authentication Flow Integration', () => {
   let authToken: string;
   let userId: string;
 
-  beforeEach(async () => {
-    // Generate unique email for each test run
+  // Helper function to create a test user
+  const createTestUser = async (emailPrefix: string) => {
     const timestamp = Date.now();
-    const uniqueEmail = `auth-test-${timestamp}@example.com`;
-
-    // Register a test user first
+    const uniqueEmail = `${emailPrefix}-${timestamp}@example.com`;
     const userData = {
       email: uniqueEmail,
       password: 'Password123!',
@@ -37,22 +35,27 @@ describe('Authentication Flow Integration', () => {
       .send(userData);
 
     if (registerResponse.status === 201 && registerResponse.body) {
-      userId = registerResponse.body.user.id;
-      // Store the unique email for use in tests
-      (global as any).testEmail = uniqueEmail;
-
       // Add this user to the protected testUserIds set to prevent deletion during cleanup
       if ((global as any).testUserIds) {
-        (global as any).testUserIds.add(userId);
+        (global as any).testUserIds.add(registerResponse.body.user.id);
       }
+      return {
+        userId: registerResponse.body.user.id,
+        email: uniqueEmail,
+        user: registerResponse.body.user
+      };
     } else {
       throw new Error(`User registration failed: ${registerResponse.status} - ${JSON.stringify(registerResponse.body)}`);
     }
-  });
+  };
 
   it('should login with valid credentials', async () => {
+    // Create a fresh user for this test
+    const testUser = await createTestUser('auth-login-valid');
+    userId = testUser.userId;
+
     const loginData = {
-      email: (global as any).testEmail,
+      email: testUser.email,
       password: 'Password123!'
     };
 
@@ -82,8 +85,11 @@ describe('Authentication Flow Integration', () => {
   });
 
   it('should reject login with wrong password', async () => {
+    // Create a fresh user for this test
+    const testUser = await createTestUser('auth-login-wrong-pass');
+
     const loginData = {
-      email: (global as any).testEmail,
+      email: testUser.email,
       password: 'WrongPassword123!'
     };
 
@@ -106,11 +112,13 @@ describe('Authentication Flow Integration', () => {
   });
 
   it('should access protected route with valid token', async () => {
-    // Use the current test user created in beforeEach
+    // Create a fresh user for this test
+    const testUser = await createTestUser('auth-protected-route');
+
     const loginResponse = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: (global as any).testEmail,
+        email: testUser.email,
         password: 'Password123!'
       })
       .expect(200);
@@ -121,7 +129,7 @@ describe('Authentication Flow Integration', () => {
       .expect(200);
 
     expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('email', (global as any).testEmail);
+    expect(response.body).toHaveProperty('email', testUser.email);
   });
 
   it('should reject access to protected route without token', async () => {
@@ -138,32 +146,14 @@ describe('Authentication Flow Integration', () => {
   });
 
   it('should handle multiple login sessions', async () => {
-    // Create a new user for this test to avoid authentication issues
-    const timestamp = Date.now();
-    const uniqueEmail = `multi-session-${timestamp}@example.com`;
-    const userData = {
-      email: uniqueEmail,
-      password: 'Password123!',
-      first_name: 'Multi',
-      last_name: 'Session'
-    };
-
-    // Register the user
-    const registerResponse = await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData)
-      .expect(201);
-
-    // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUserIds) {
-      (global as any).testUserIds.add(registerResponse.body.user.id);
-    }
+    // Create a fresh user for this test
+    const testUser = await createTestUser('auth-multi-session');
 
     // First login
     const firstLogin = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: uniqueEmail,
+        email: testUser.email,
         password: 'Password123!'
       })
       .expect(200);
@@ -175,7 +165,7 @@ describe('Authentication Flow Integration', () => {
     const secondLogin = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: uniqueEmail,
+        email: testUser.email,
         password: 'Password123!'
       })
       .expect(200);
@@ -196,29 +186,11 @@ describe('Authentication Flow Integration', () => {
   });
 
   it('should handle rate limiting for failed login attempts', async () => {
-    // Create a new user for this test to avoid authentication issues
-    const timestamp = Date.now();
-    const uniqueEmail = `rate-limit-${timestamp}@example.com`;
-    const userData = {
-      email: uniqueEmail,
-      password: 'Password123!',
-      first_name: 'Rate',
-      last_name: 'Limit'
-    };
-
-    // Register the user
-    const registerResponse = await request(app)
-      .post('/api/v1/auth/register')
-      .send(userData)
-      .expect(201);
-
-    // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUserIds) {
-      (global as any).testUserIds.add(registerResponse.body.user.id);
-    }
+    // Create a fresh user for this test
+    const testUser = await createTestUser('auth-rate-limit');
 
     const invalidLogin = {
-      email: uniqueEmail,
+      email: testUser.email,
       password: 'WrongPassword123!'
     };
 
@@ -234,7 +206,7 @@ describe('Authentication Flow Integration', () => {
     await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: uniqueEmail,
+        email: testUser.email,
         password: 'Password123!'
       })
       .expect(200);
@@ -243,10 +215,12 @@ describe('Authentication Flow Integration', () => {
   it('should validate token expiration', async () => {
     // This test would require mocking token expiration
     // For now, just verify token structure
+    const testUser = await createTestUser('auth-token-expiration');
+
     const response = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: (global as any).testEmail,
+        email: testUser.email,
         password: 'Password123!'
       })
       .expect(200);

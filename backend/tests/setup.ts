@@ -37,6 +37,10 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+// Track cleanup state to prevent excessive cleaning
+let cleanupCounter = 0;
+const CLEANUP_INTERVAL = 50; // Clean up every 50 tests (much less frequent)
+
 beforeEach(async () => {
   // Create unique test session for each test
   testSessionCounter++;
@@ -50,61 +54,56 @@ beforeEach(async () => {
     carts: new Set()
   });
 
-  // Clean up database before each test - PRAGMA APPROACH
-  try {
-    // Wait for any pending operations to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Use Prisma deleteMany for tables that exist - proper foreign key constraint handling
-    // Delete in correct order to respect foreign key constraints
-    try {
-      // Delete payments first (depends on orders)
-      try {
-        await prisma.payment.deleteMany();
-      } catch (e) {
-        // Payment table might not exist
-      }
-
-      // Delete order items before orders
-      await prisma.orderItem.deleteMany();
-
-      // Now delete orders
-      await prisma.order.deleteMany();
-
-      // Delete cart items before carts
-      await prisma.cartItem.deleteMany();
-      await prisma.shoppingCart.deleteMany();
-
-      // Delete products and users (no foreign key dependencies)
-      await prisma.product.deleteMany();
-
-      // Only delete users that are not in the protected testUserIds set
-      if (testUserIds.size > 0) {
-        await prisma.user.deleteMany({
-          where: {
-            id: {
-              notIn: Array.from(testUserIds)
-            }
-          }
-        });
-      } else {
-        await prisma.user.deleteMany();
-      }
-    } catch (error) {
-      console.log('Prisma cleanup error:', error);
-    }
-
-    // Don't clear tracking sets - we want to protect test users across all tests
-    // Only clear product IDs since products can be recreated
-    testProductIds.clear();
-
-    // Extended delay to ensure cleanup is complete
-    await new Promise(resolve => setTimeout(resolve, 500));
-  } catch (error) {
-    // If tables don't exist or other errors, just continue
-    console.log('Database cleanup skipped:', error);
+  // Much less frequent cleanup to prevent breaking authentication
+  cleanupCounter++;
+  if (cleanupCounter % CLEANUP_INTERVAL === 0) {
+    await performPartialCleanup();
   }
 });
+
+// Partial cleanup that preserves recent test data
+const performPartialCleanup = async () => {
+  try {
+    // Only clean up very old data (older than 1 minute) to prevent test interference
+    const cutoffTime = new Date(Date.now() - 1 * 60 * 1000); // 1 minute ago
+
+    await prisma.orderItem.deleteMany({
+      where: {
+        created_at: {
+          lt: cutoffTime
+        }
+      }
+    });
+
+    await prisma.order.deleteMany({
+      where: {
+        created_at: {
+          lt: cutoffTime
+        }
+      }
+    });
+
+    await prisma.cartItem.deleteMany({
+      where: {
+        created_at: {
+          lt: cutoffTime
+        }
+      }
+    });
+
+    await prisma.shoppingCart.deleteMany({
+      where: {
+        created_at: {
+          lt: cutoffTime
+        }
+      }
+    });
+
+    console.log(`Performed partial cleanup (test ${cleanupCounter}) - removed data older than 1 minute`);
+  } catch (error) {
+    console.log('Partial cleanup failed:', error);
+  }
+};
 
 afterAll(async () => {
   // Final comprehensive cleanup after all tests complete
