@@ -171,7 +171,8 @@ describe('Shopping Cart Management Integration', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body.data).toHaveProperty('total_amount', 113.96); // (25.99 * 3) + 35.99
+    expect(response.body.data).toHaveProperty('total_amount');
+    expect(parseFloat(response.body.data.total_amount.toFixed(2))).toBe(113.96); // (25.99 * 3) + 35.99
   });
 
   it('should prevent adding item with insufficient stock', async () => {
@@ -217,7 +218,7 @@ describe('Shopping Cart Management Integration', () => {
 
   it('should handle removal of non-existent cart item', async () => {
     await request(app)
-      .delete('/api/v1/cart/items/non-existent-id')
+      .delete('/api/v1/cart/items/nonexistentitemid') // Use format that passes validation
       .set('Authorization', `Bearer ${authToken}`)
       .expect(404);
   });
