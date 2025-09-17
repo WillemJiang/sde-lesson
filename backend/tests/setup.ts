@@ -50,35 +50,12 @@ beforeEach(async () => {
     carts: new Set()
   });
 
-  // Clean up database before each test - ULTRA ISOLATION APPROACH
+  // Clean up database before each test - PRAGMA APPROACH
   try {
     // Wait for any pending operations to complete
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // SQLite approach - ultra aggressive cleanup
-    await prisma.$executeRaw`PRAGMA foreign_keys = OFF;`;
-
-    // Clean up ALL data for complete isolation - use try/catch for each table
-    const tables = ['Payment', 'OrderItem', 'Order', 'CartItem', 'ShoppingCart', 'Product', 'User'];
-    for (const table of tables) {
-      try {
-        await prisma.$executeRaw`DELETE FROM ${table};`;
-      } catch (error) {
-        // Table might not exist, continue with next table
-        console.log(`Table ${table} cleanup skipped:`, (error as Error)?.message || error);
-      }
-    }
-
-    // Reset ALL auto-increment counters
-    try {
-      await prisma.$executeRaw`DELETE FROM sqlite_sequence;`;
-    } catch (error) {
-      console.log('SQLite sequence reset skipped:', (error as Error)?.message || error);
-    }
-
-    await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
-
-    // Additional safety: Use Prisma deleteMany for tables that exist
+    // Use Prisma deleteMany for tables that exist - proper foreign key constraint handling
     // Delete in correct order to respect foreign key constraints
     try {
       // Delete payments first (depends on orders)
@@ -120,20 +97,29 @@ beforeEach(async () => {
 afterAll(async () => {
   // Final comprehensive cleanup after all tests complete
   try {
-    // Clean up all remaining data - SQLite approach with error handling
-    await prisma.$executeRaw`PRAGMA foreign_keys = OFF;`;
-
-    // Delete in correct order to respect foreign key constraints
-    const tablesInOrder = ['Payment', 'OrderItem', 'CartItem', 'Order', 'ShoppingCart', 'Product', 'User'];
-    for (const table of tablesInOrder) {
+    // Use Prisma deleteMany for final cleanup - respects foreign key constraints
+    try {
+      // Delete payments first (depends on orders)
       try {
-        await prisma.$executeRaw`DELETE FROM ${table};`;
-      } catch (error) {
-        // Table might not exist, continue with next table
+        await prisma.payment.deleteMany();
+      } catch (e) {
+        // Payment table might not exist
       }
-    }
 
-    await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
+      // Delete order items before orders
+      await prisma.orderItem.deleteMany();
+      await prisma.order.deleteMany();
+
+      // Delete cart items before carts
+      await prisma.cartItem.deleteMany();
+      await prisma.shoppingCart.deleteMany();
+
+      // Delete products and users
+      await prisma.product.deleteMany();
+      await prisma.user.deleteMany();
+    } catch (error) {
+      // Tables might not exist, continue
+    }
 
     // Clear tracking sets
     testUserIds.clear();
