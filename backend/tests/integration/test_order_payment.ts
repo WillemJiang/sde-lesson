@@ -2,13 +2,10 @@ import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import app from '../../src/index';
 
-// Declare global test utilities
+// Access global test variables
 declare global {
-  var testUtils: {
-    generateUniqueEmail: (prefix: string) => string;
-    generateUniqueSKU: (prefix: string) => string;
-    createProduct: (productData: any) => Promise<any>;
-  };
+  var testUserIds: Set<string>;
+  var testUtils: any;
 }
 
 describe('Order Creation and Payment Flow Integration', () => {
@@ -16,9 +13,10 @@ describe('Order Creation and Payment Flow Integration', () => {
   let productId1: string;
   let productId2: string;
 
-  beforeAll(async () => {
-    // Register and login test user
-    const userEmail = global.testUtils.generateUniqueEmail('order-payment');
+  beforeEach(async () => {
+    // Register and login test user for each test (ensures data isolation)
+    const timestamp = Date.now();
+    const userEmail = `order-${timestamp}@example.com`;
     const userData = {
       email: userEmail,
       password: 'Password123!',
@@ -26,6 +24,7 @@ describe('Order Creation and Payment Flow Integration', () => {
       last_name: 'Payment'
     };
 
+    // Register the user
     await request(app)
       .post('/api/v1/auth/register')
       .send(userData);
@@ -36,6 +35,10 @@ describe('Order Creation and Payment Flow Integration', () => {
         email: userEmail,
         password: 'Password123!'
       });
+
+    if (loginResponse.status !== 200) {
+      throw new Error(`User login failed with status ${loginResponse.status}: ${JSON.stringify(loginResponse.body)}`);
+    }
 
     authToken = loginResponse.body.token;
 
@@ -63,32 +66,76 @@ describe('Order Creation and Payment Flow Integration', () => {
   });
 
   it('should add items to shopping cart', async () => {
+    // Create a new user for this test to ensure authentication works
+    const timestamp = Date.now();
+    const userEmail = `cart-test-${timestamp}@example.com`;
+    const userData = {
+      email: userEmail,
+      password: 'Password123!',
+      first_name: 'Cart',
+      last_name: 'Test'
+    };
+
+    // Register and login
+    await request(app)
+      .post('/api/v1/auth/register')
+      .send(userData);
+
+    const loginResponse = await request(app)
+      .post('/api/v1/auth/login')
+      .send({
+        email: userEmail,
+        password: 'Password123!'
+      })
+      .expect(200);
+
+    const testToken = loginResponse.body.token;
+
+    // Create test products
+    const product1 = await global.testUtils.createProduct({
+      name: 'Test Headphones',
+      description: 'Test headphones',
+      price: 199.99,
+      stock_quantity: 20,
+      category: 'Electronics',
+      sku: global.testUtils.generateUniqueSKU('TH')
+    });
+
+    const product2 = await global.testUtils.createProduct({
+      name: 'Test Mouse',
+      description: 'Test mouse',
+      price: 49.99,
+      stock_quantity: 50,
+      category: 'Electronics',
+      sku: global.testUtils.generateUniqueSKU('TM')
+    });
+
     const cartItem1 = {
-      product_id: productId1,
+      product_id: product1.id,
       quantity: 1
     };
 
     const cartItem2 = {
-      product_id: productId2,
+      product_id: product2.id,
       quantity: 2
     };
 
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testToken}`)
       .send(cartItem1)
       .expect(201);
 
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testToken}`)
       .send(cartItem2)
       .expect(201);
 
     // Verify cart total
     const cartResponse = await request(app)
       .get('/api/v1/cart')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testToken}`)
       .expect(200);
 
     // Calculate total from cart items
@@ -341,6 +388,43 @@ describe('Order Creation and Payment Flow Integration', () => {
   });
 
   it('should list user orders', async () => {
+    // First add items to cart and create an order
+    const cartItem = {
+      product_id: productId1,
+      quantity: 1
+    };
+
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem)
+      .expect(201);
+
+    // Create an order
+    const orderData = {
+      shipping_address: {
+        street: '123 List St',
+        city: 'List City',
+        state: 'List State',
+        zip_code: '12345',
+        country: 'USA'
+      },
+      billing_address: {
+        street: '123 List St',
+        city: 'List City',
+        state: 'List State',
+        zip_code: '12345',
+        country: 'USA'
+      }
+    };
+
+    await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(orderData)
+      .expect(201);
+
+    // Now list the orders
     const response = await request(app)
       .get('/api/v1/orders')
       .set('Authorization', `Bearer ${authToken}`)

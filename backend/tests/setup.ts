@@ -77,7 +77,19 @@ beforeEach(async () => {
 
       // Delete products and users (no foreign key dependencies)
       await prisma.product.deleteMany();
-      await prisma.user.deleteMany();
+
+      // Only delete users that are not in the protected testUserIds set
+      if (testUserIds.size > 0) {
+        await prisma.user.deleteMany({
+          where: {
+            id: {
+              notIn: Array.from(testUserIds)
+            }
+          }
+        });
+      } else {
+        await prisma.user.deleteMany();
+      }
     } catch (error) {
       console.log('Prisma cleanup error:', error);
     }
@@ -116,7 +128,19 @@ afterAll(async () => {
 
       // Delete products and users
       await prisma.product.deleteMany();
-      await prisma.user.deleteMany();
+
+      // Only delete users that are not in the protected testUserIds set
+      if (testUserIds.size > 0) {
+        await prisma.user.deleteMany({
+          where: {
+            id: {
+              notIn: Array.from(testUserIds)
+            }
+          }
+        });
+      } else {
+        await prisma.user.deleteMany();
+      }
     } catch (error) {
       // Tables might not exist, continue
     }

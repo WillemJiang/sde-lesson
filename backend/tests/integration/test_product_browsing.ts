@@ -13,7 +13,7 @@ describe('Product Browsing and Search Integration', () => {
     // Use a unique email for each test run to avoid conflicts
     const timestamp = Date.now();
     const userData = {
-      email: `admin-post-test-${timestamp}@example.com`, // Use admin email pattern with timestamp
+      email: `admin-${timestamp}@example.com`, // Use admin email pattern with timestamp
       password: 'Password123!',
       first_name: 'Product',
       last_name: 'Test'
@@ -27,7 +27,7 @@ describe('Product Browsing and Search Integration', () => {
     const loginResponse = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: `admin-post-test-${timestamp}@example.com`,
+        email: `admin-${timestamp}@example.com`,
         password: 'Password123!'
       });
 

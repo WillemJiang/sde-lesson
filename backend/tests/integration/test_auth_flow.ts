@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('Authentication Flow Integration', () => {
@@ -120,11 +120,27 @@ describe('Authentication Flow Integration', () => {
   });
 
   it('should handle multiple login sessions', async () => {
+    // Create a new user for this test to avoid authentication issues
+    const timestamp = Date.now();
+    const uniqueEmail = `multi-session-${timestamp}@example.com`;
+    const userData = {
+      email: uniqueEmail,
+      password: 'Password123!',
+      first_name: 'Multi',
+      last_name: 'Session'
+    };
+
+    // Register the user
+    await request(app)
+      .post('/api/v1/auth/register')
+      .send(userData)
+      .expect(201);
+
     // First login
     const firstLogin = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: (global as any).testEmail,
+        email: uniqueEmail,
         password: 'Password123!'
       })
       .expect(200);
@@ -136,7 +152,7 @@ describe('Authentication Flow Integration', () => {
     const secondLogin = await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: (global as any).testEmail,
+        email: uniqueEmail,
         password: 'Password123!'
       })
       .expect(200);
@@ -157,8 +173,24 @@ describe('Authentication Flow Integration', () => {
   });
 
   it('should handle rate limiting for failed login attempts', async () => {
+    // Create a new user for this test to avoid authentication issues
+    const timestamp = Date.now();
+    const uniqueEmail = `rate-limit-${timestamp}@example.com`;
+    const userData = {
+      email: uniqueEmail,
+      password: 'Password123!',
+      first_name: 'Rate',
+      last_name: 'Limit'
+    };
+
+    // Register the user
+    await request(app)
+      .post('/api/v1/auth/register')
+      .send(userData)
+      .expect(201);
+
     const invalidLogin = {
-      email: (global as any).testEmail,
+      email: uniqueEmail,
       password: 'WrongPassword123!'
     };
 
@@ -174,7 +206,7 @@ describe('Authentication Flow Integration', () => {
     await request(app)
       .post('/api/v1/auth/login')
       .send({
-        email: (global as any).testEmail,
+        email: uniqueEmail,
         password: 'Password123!'
       })
       .expect(200);

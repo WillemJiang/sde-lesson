@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 describe('User Profile Management Integration', () => {

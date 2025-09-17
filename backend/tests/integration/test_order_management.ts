@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
 // Declare global test utilities
@@ -20,7 +20,7 @@ describe('Order Management and Cancellation Integration', () => {
   let orderId2: string;
   let orderId3: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Register and login first test user
     const user1Email = global.testUtils.generateUniqueEmail('order-mgmt1');
     const user1Data = {

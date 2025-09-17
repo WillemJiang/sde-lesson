@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 import bcrypt from 'bcryptjs';
 
@@ -24,7 +24,7 @@ describe('Shopping Cart Management Integration', () => {
   let cartItemId1: string;
   let cartItemId2: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create first test user using test utilities
     const hashedPassword = await bcrypt.hash('Password123!', 10);
     const user1Result = await global.testUtils.createTestUserWithToken({
@@ -106,6 +106,18 @@ describe('Shopping Cart Management Integration', () => {
   });
 
   it('should retrieve updated shopping cart with items', async () => {
+    // First add an item to ensure we have something to retrieve
+    const cartItem = {
+      product_id: productId1,
+      quantity: 2
+    };
+
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem)
+      .expect(201);
+
     const response = await request(app)
       .get('/api/v1/cart')
       .set('Authorization', `Bearer ${authToken}`)
@@ -113,9 +125,12 @@ describe('Shopping Cart Management Integration', () => {
 
     expect(response.body.data).toHaveProperty('items');
     expect(response.body.data.items.length).toBe(1);
-    expect(response.body.data.items[0]).toHaveProperty('id', cartItemId1);
+    expect(response.body.data.items[0]).toHaveProperty('product_id', productId1);
     expect(response.body.data.items[0]).toHaveProperty('quantity', 2);
     expect(response.body.data).toHaveProperty('total_amount', 51.98);
+
+    // Update cartItemId1 with the actual ID from the response
+    cartItemId1 = response.body.data.items[0].id;
   });
 
   it('should add multiple items to shopping cart', async () => {
@@ -139,6 +154,29 @@ describe('Shopping Cart Management Integration', () => {
   });
 
   it('should calculate correct total amount with multiple items', async () => {
+    // Add both items to cart for this test
+    const cartItem1 = {
+      product_id: productId1,
+      quantity: 2
+    };
+
+    const cartItem2 = {
+      product_id: productId2,
+      quantity: 1
+    };
+
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem1)
+      .expect(201);
+
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem2)
+      .expect(201);
+
     const response = await request(app)
       .get('/api/v1/cart')
       .set('Authorization', `Bearer ${authToken}`)
@@ -147,25 +185,70 @@ describe('Shopping Cart Management Integration', () => {
     expect(response.body.data).toHaveProperty('items');
     expect(response.body.data.items.length).toBe(2);
     expect(response.body.data).toHaveProperty('total_amount', 87.97); // (25.99 * 2) + 35.99
+
+    // Store the actual cart item IDs for later tests
+    const item1 = response.body.data.items.find((item: any) => item.product_id === productId1);
+    const item2 = response.body.data.items.find((item: any) => item.product_id === productId2);
+    if (item1) cartItemId1 = item1.id;
+    if (item2) cartItemId2 = item2.id;
   });
 
   it('should update cart item quantity', async () => {
+    // First add an item to cart
+    const cartItem = {
+      product_id: productId1,
+      quantity: 2
+    };
+
+    const addResponse = await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem)
+      .expect(201);
+
+    // Get the cart item ID
+    const addedItem = addResponse.body.data.items.find((item: any) => item.product_id === productId1);
+    const itemId = addedItem.id;
+
     const updateData = {
       quantity: 3
     };
 
     const response = await request(app)
-      .put(`/api/v1/cart/items/${cartItemId1}`)
+      .put(`/api/v1/cart/items/${itemId}`)
       .set('Authorization', `Bearer ${authToken}`)
       .send(updateData)
       .expect(200);
 
-    const updatedItem = response.body.data.items.find((item: any) => item.id === cartItemId1);
-    expect(updatedItem).toHaveProperty('id', cartItemId1);
+    const updatedItem = response.body.data.items.find((item: any) => item.id === itemId);
+    expect(updatedItem).toHaveProperty('id', itemId);
     expect(updatedItem).toHaveProperty('quantity', 3);
   });
 
   it('should recalculate total after quantity update', async () => {
+    // Add items to cart
+    const cartItem1 = {
+      product_id: productId1,
+      quantity: 3
+    };
+
+    const cartItem2 = {
+      product_id: productId2,
+      quantity: 1
+    };
+
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem1)
+      .expect(201);
+
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem2)
+      .expect(201);
+
     const response = await request(app)
       .get('/api/v1/cart')
       .set('Authorization', `Bearer ${authToken}`)
@@ -201,8 +284,35 @@ describe('Shopping Cart Management Integration', () => {
   });
 
   it('should remove item from shopping cart', async () => {
+    // Add items to cart first
+    const cartItem1 = {
+      product_id: productId1,
+      quantity: 3
+    };
+
+    const cartItem2 = {
+      product_id: productId2,
+      quantity: 1
+    };
+
     await request(app)
-      .delete(`/api/v1/cart/items/${cartItemId2}`)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem1)
+      .expect(201);
+
+    const addResponse = await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem2)
+      .expect(201);
+
+    // Get the cart item ID to remove
+    const addedItem = addResponse.body.data.items.find((item: any) => item.product_id === productId2);
+    const itemId = addedItem.id;
+
+    await request(app)
+      .delete(`/api/v1/cart/items/${itemId}`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(204);
 
@@ -259,9 +369,25 @@ describe('Shopping Cart Management Integration', () => {
   });
 
   it('should handle cart edge cases', async () => {
+    // Add an item first
+    const cartItem = {
+      product_id: productId1,
+      quantity: 2
+    };
+
+    const addResponse = await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(cartItem)
+      .expect(201);
+
+    // Get the cart item ID
+    const addedItem = addResponse.body.data.items.find((item: any) => item.product_id === productId1);
+    const itemId = addedItem.id;
+
     // Try to update quantity to zero
     await request(app)
-      .put(`/api/v1/cart/items/${cartItemId1}`)
+      .put(`/api/v1/cart/items/${itemId}`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ quantity: 0 })
       .expect(400);
