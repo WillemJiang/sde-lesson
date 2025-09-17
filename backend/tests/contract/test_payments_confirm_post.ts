@@ -190,6 +190,10 @@ describe('POST /payments/{id}/confirm', () => {
       .set('Authorization', `Bearer ${otherUserAuthToken}`)
       .send(otherOrderData);
 
+    // Ensure the order was created successfully
+    if (otherOrderResponse.status !== 201 || !otherOrderResponse.body.data) {
+      throw new Error('Failed to create other user order for payment confirmation test');
+    }
     const otherOrderId = otherOrderResponse.body.data.id;
 
     const otherPaymentIntentData = {
@@ -214,12 +218,91 @@ describe('POST /payments/{id}/confirm', () => {
   });
 
   it('should return 400 for already confirmed payments', async () => {
+    // Create a fresh user for this test to avoid authentication issues
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('payment-confirm-duplicate'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Payment',
+      last_name: 'Confirm',
+      is_verified: true
+    });
+    const freshAuthToken = freshUserResult.token;
+
+    // Create a unique product for this test
+    const freshProductData = {
+      name: 'Duplicate Payment Product',
+      description: 'Product for duplicate payment testing',
+      price: 149.99,
+      stock_quantity: 100,
+      sku: testUtils.generateUniqueSKU('DUPLICATE-PAYMENT'),
+      category: 'electronics'
+    };
+
+    const freshProductId = (await testUtils.createProduct(freshProductData)).id;
+
+    // Add item to cart
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${freshAuthToken}`)
+      .send({
+        product_id: freshProductId,
+        quantity: 2
+      })
+      .expect(201);
+
+    const orderData = {
+      shipping_address: {
+        street: '123 Duplicate Payment St',
+        city: 'Duplicate City',
+        state: 'DC',
+        zip_code: '12345',
+        country: 'USA'
+      },
+      billing_address: {
+        street: '123 Duplicate Payment St',
+        city: 'Duplicate City',
+        state: 'DC',
+        zip_code: '12345',
+        country: 'USA'
+      }
+    };
+
+    const orderResponse = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${freshAuthToken}`)
+      .send(orderData);
+
+    // Ensure order was created successfully
+    if (orderResponse.status !== 201 || !orderResponse.body.data) {
+      throw new Error('Failed to create order for duplicate payment test');
+    }
+
+    const freshOrderId = orderResponse.body.data.id;
+
+    const paymentIntentData = {
+      order_id: freshOrderId
+    };
+
+    const paymentIntentResponse = await request(app)
+      .post('/api/v1/payments/create-payment-intent')
+      .set('Authorization', `Bearer ${freshAuthToken}`)
+      .send(paymentIntentData)
+      .expect(200);
+
+    const freshPaymentId = paymentIntentResponse.body.payment_intent_id;
+
+    // Confirm payment first time
+    await request(app)
+      .post(`/api/v1/payments/${freshPaymentId}/confirm`)
+      .set('Authorization', `Bearer ${freshAuthToken}`)
+      .expect(200);
+
     // Try to confirm the same payment again
     // Current implementation allows reconfirmation which it shouldn't
     // TODO: Fix payment service to prevent reconfirmation of succeeded payments
     await request(app)
-      .post(`/api/v1/payments/${paymentId}/confirm`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .post(`/api/v1/payments/${freshPaymentId}/confirm`)
+      .set('Authorization', `Bearer ${freshAuthToken}`)
       .expect(200); // Should be 400 but system returns 200
   });
 
@@ -280,12 +363,34 @@ describe('POST /payments/{id}/confirm', () => {
   });
 
   it('should return 400 for cancelled orders', async () => {
+    // Create a fresh user for this test to avoid authentication issues
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('payment-cancelled-order'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Cancelled',
+      last_name: 'Order',
+      is_verified: true
+    });
+    const freshAuthToken = freshUserResult.token;
+
+    // Create a unique product for this test
+    const freshProductData = {
+      name: 'Cancelled Order Product',
+      description: 'Product for cancelled order testing',
+      price: 89.99,
+      stock_quantity: 100,
+      sku: testUtils.generateUniqueSKU('CANCELLED-ORDER'),
+      category: 'electronics'
+    };
+
+    const freshProductId = (await testUtils.createProduct(freshProductData)).id;
+
     // Create a new order and cancel it
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshAuthToken}`)
       .send({
-        product_id: productId,
+        product_id: freshProductId,
         quantity: 1
       })
       .expect(201);
@@ -309,15 +414,20 @@ describe('POST /payments/{id}/confirm', () => {
 
     const cancelledOrderResponse = await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshAuthToken}`)
       .send(cancelledOrderData);
+
+    // Ensure order was created successfully
+    if (cancelledOrderResponse.status !== 201 || !cancelledOrderResponse.body.data) {
+      throw new Error('Failed to create order for cancelled payment test');
+    }
 
     const cancelledOrderId = cancelledOrderResponse.body.data.id;
 
     // Cancel the order
     await request(app)
       .post(`/api/v1/orders/${cancelledOrderId}/cancel`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshAuthToken}`)
       .expect(200);
 
     const cancelledPaymentIntentData = {
@@ -327,7 +437,7 @@ describe('POST /payments/{id}/confirm', () => {
     // The system correctly prevents payment intent creation for cancelled orders
     await request(app)
       .post('/api/v1/payments/create-payment-intent')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshAuthToken}`)
       .send(cancelledPaymentIntentData)
       .expect(400); // Correctly returns 400 for cancelled orders
   });

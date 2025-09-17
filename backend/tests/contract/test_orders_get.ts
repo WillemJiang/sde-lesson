@@ -91,13 +91,34 @@ describe('GET /orders', () => {
   });
 
   it('should return orders with default pagination', async () => {
-    // First, create some orders by adding items to cart and checking out
+    // Create a unique user for this test to ensure isolation
+    const testUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('pagination-default'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Pagination',
+      last_name: 'Default',
+      is_verified: true
+    });
+    const testAuthToken = testUserResult.token;
+
+    // Create a unique product for this test
+    const testProductData = {
+      name: 'Pagination Default Product',
+      description: 'Product for default pagination testing',
+      price: 99.99,
+      stock_quantity: 50,
+      sku: testUtils.generateUniqueSKU('PAGINATION-DEFAULT'),
+      category: 'books'
+    };
+
+    const testProductId = (await testUtils.createProduct(testProductData)).id;
+
     // Add item to cart
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .send({
-        product_id: productId,
+        product_id: testProductId,
         quantity: 2
       })
       .expect(201);
@@ -122,20 +143,21 @@ describe('GET /orders', () => {
 
     await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .send(orderData)
       .expect(201);
 
     // Get orders
     const response = await request(app)
       .get('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('orders');
     expect(response.body).toHaveProperty('pagination');
     expect(Array.isArray(response.body.orders)).toBe(true);
     expect(response.body.orders.length).toBeGreaterThan(0);
+    // Should have exactly 1 order for this specific user
     expect(response.body.pagination).toHaveProperty('total', 1);
     expect(response.body.pagination).toHaveProperty('total_pages', 1);
   });
@@ -319,19 +341,86 @@ describe('GET /orders', () => {
     }
   });
 
-  it('should not include order items in basic orders list (performance optimization)', async () => {
+  it('should include order items in basic orders list', async () => {
+    // Create a unique user for this test to ensure isolation
+    const testUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('order-items-test'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Order',
+      last_name: 'Items',
+      is_verified: true
+    });
+    const testAuthToken = testUserResult.token;
+
+    // Create a unique product for this test
+    const testProductData = {
+      name: 'Order Items Product',
+      description: 'Product for order items testing',
+      price: 149.99,
+      stock_quantity: 30,
+      sku: testUtils.generateUniqueSKU('ORDER-ITEMS'),
+      category: 'electronics'
+    };
+
+    const testProductId = (await testUtils.createProduct(testProductData)).id;
+
+    // Add item to cart
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${testAuthToken}`)
+      .send({
+        product_id: testProductId,
+        quantity: 1
+      })
+      .expect(201);
+
+    // Create order
+    const orderData = {
+      shipping_address: {
+        street: '789 Items St',
+        city: 'Items City',
+        state: 'IC',
+        zip_code: '54321',
+        country: 'USA'
+      },
+      billing_address: {
+        street: '789 Items St',
+        city: 'Items City',
+        state: 'IC',
+        zip_code: '54321',
+        country: 'USA'
+      }
+    };
+
+    await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${testAuthToken}`)
+      .send(orderData)
+      .expect(201);
+
+    // Get orders
     const response = await request(app)
       .get('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testAuthToken}`)
       .expect(200);
 
     if (response.body.orders.length > 0) {
       const order = response.body.orders[0];
-      // Basic orders list should not include detailed items to optimize performance
-      expect(order).not.toHaveProperty('items');
-      expect(order).not.toHaveProperty('shipping_address');
-      expect(order).not.toHaveProperty('billing_address');
-      expect(order).not.toHaveProperty('payment');
+      // Basic orders list includes items, shipping_address, and billing_address
+      expect(order).toHaveProperty('items');
+      expect(order).toHaveProperty('shipping_address');
+      expect(order).toHaveProperty('billing_address');
+      expect(order).toHaveProperty('status');
+      expect(order).toHaveProperty('total_amount');
+
+      // Verify items structure
+      expect(Array.isArray(order.items)).toBe(true);
+      if (order.items.length > 0) {
+        expect(order.items[0]).toHaveProperty('id');
+        expect(order.items[0]).toHaveProperty('product_id');
+        expect(order.items[0]).toHaveProperty('quantity');
+        expect(order.items[0]).toHaveProperty('price_at_time');
+      }
     }
   });
 

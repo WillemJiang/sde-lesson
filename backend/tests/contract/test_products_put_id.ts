@@ -104,6 +104,16 @@ describe('PUT /products/{id}', () => {
   });
 
   it('should return 404 for non-existent product ID', async () => {
+    // Create a fresh admin user for this test to avoid authentication issues
+    const freshAdminResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('admin-update-nonexistent'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Admin',
+      last_name: 'User',
+      is_verified: true,
+      role: 'ADMIN'
+    });
+
     const nonExistentId = 'cm1234567890abcdef12345678'; // CUID format that doesn't exist
     const updateData = {
       name: 'Update Non-existent'
@@ -111,7 +121,7 @@ describe('PUT /products/{id}', () => {
 
     await request(app)
       .put(`/api/v1/products/${nonExistentId}`)
-      .set('Authorization', `Bearer ${adminAuthToken}`)
+      .set('Authorization', `Bearer ${freshAdminResult.token}`)
       .send(updateData)
       .expect(404);
   });

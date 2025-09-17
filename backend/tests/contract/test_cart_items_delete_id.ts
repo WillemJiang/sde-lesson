@@ -25,8 +25,8 @@ describe('DELETE /cart/items/{id}', () => {
   beforeEach(async () => {
     // Create regular user using test utilities
     const hashedPassword = await bcrypt.hash('Password123!', 10);
-    const userResult = await global.testUtils.createTestUserWithToken({
-      email: global.testUtils.generateUniqueEmail('cart-delete'),
+    const userResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('cart-delete'),
       password_hash: hashedPassword,
       first_name: 'John',
       last_name: 'Doe',
@@ -35,8 +35,8 @@ describe('DELETE /cart/items/{id}', () => {
     authToken = userResult.token;
 
     // Create admin user using test utilities
-    const adminResult = await global.testUtils.createTestUserWithToken({
-      email: global.testUtils.generateUniqueEmail('admin-cart-delete'),
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('admin-cart-delete'),
       password_hash: hashedPassword,
       first_name: 'Admin',
       last_name: 'User',
@@ -51,11 +51,11 @@ describe('DELETE /cart/items/{id}', () => {
       description: 'A test product for cart item deletion',
       price: 69.99,
       stock_quantity: 100,
-      sku: global.testUtils.generateUniqueSKU('CART-DELETE'),
+      sku: testUtils.generateUniqueSKU('CART-DELETE'),
       category: 'electronics'
     };
 
-    productId = (await global.testUtils.createProduct(productData)).id;
+    productId = (await testUtils.createProduct(productData)).id;
 
     // Add items to cart for testing
     const firstItemData = {
@@ -68,6 +68,10 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(firstItemData);
 
+    // Ensure the response has the expected structure before accessing items
+    if (firstItemResponse.status !== 201 || !firstItemResponse.body.data || !firstItemResponse.body.data.items || firstItemResponse.body.data.items.length === 0) {
+      throw new Error('Failed to add first item to cart in beforeEach');
+    }
     cartItemIdToDelete = firstItemResponse.body.data.items[0].id;
 
     const secondItemData = {
@@ -80,6 +84,10 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(secondItemData);
 
+    // Ensure the response has the expected structure before accessing items
+    if (secondItemResponse.status !== 201 || !secondItemResponse.body.data || !secondItemResponse.body.data.items || secondItemResponse.body.data.items.length === 0) {
+      throw new Error('Failed to add second item to cart in beforeEach');
+    }
     cartItemIdToKeep = secondItemResponse.body.data.items[0].id;
   });
 
@@ -202,8 +210,8 @@ describe('DELETE /cart/items/{id}', () => {
   it('should update cart totals correctly after item deletion', async () => {
     // Create a new user for this test to avoid conflicts
     const hashedPassword = await bcrypt.hash('Password123!', 10);
-    const testUserResult = await global.testUtils.createTestUserWithToken({
-      email: global.testUtils.generateUniqueEmail('cart-delete-totals'),
+    const testUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('cart-delete-totals'),
       password_hash: hashedPassword,
       first_name: 'Test',
       last_name: 'User',
@@ -224,9 +232,21 @@ describe('DELETE /cart/items/{id}', () => {
     expect(beforeTotalItems).toBe(0);
     expect(beforeTotalAmount).toBe(0);
 
+    // Create a fresh product for this test to avoid stock issues
+    const freshProductData = {
+      name: 'Cart Delete Totals Product',
+      description: 'Product for cart delete totals testing',
+      price: 29.99,
+      stock_quantity: 100,
+      sku: testUtils.generateUniqueSKU('CART-DELETE-TOTALS'),
+      category: 'books'
+    };
+
+    const freshProductId = (await testUtils.createProduct(freshProductData)).id;
+
     // Create a new item to delete
     const newItemData = {
-      product_id: productId,
+      product_id: freshProductId,
       quantity: 3
     };
 
@@ -235,6 +255,10 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${testAuthToken}`)
       .send(newItemData);
 
+    // Ensure the response has the expected structure before accessing items
+    if (createResponse.status !== 201 || !createResponse.body.data || !createResponse.body.data.items || createResponse.body.data.items.length === 0) {
+      throw new Error('Failed to add item to cart in update totals test');
+    }
     const tempCartItemId = createResponse.body.data.items[0].id;
 
     // Get cart after adding item
@@ -273,8 +297,8 @@ describe('DELETE /cart/items/{id}', () => {
   it('should handle deletion of last item in cart (empty cart)', async () => {
     // Create a new user with only one cart item
     const hashedPassword = await bcrypt.hash('Password123!', 10);
-    const newUserResult = await global.testUtils.createTestUserWithToken({
-      email: global.testUtils.generateUniqueEmail('single-item-user'),
+    const newUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('single-item-user'),
       password_hash: hashedPassword,
       first_name: 'Single',
       last_name: 'User',
@@ -293,6 +317,10 @@ describe('DELETE /cart/items/{id}', () => {
       .set('Authorization', `Bearer ${newUserAuthToken}`)
       .send(singleItemData);
 
+    // Ensure the response has the expected structure before accessing items
+    if (singleItemResponse.status !== 201 || !singleItemResponse.body.data || !singleItemResponse.body.data.items || singleItemResponse.body.data.items.length === 0) {
+      throw new Error('Failed to add single item to cart in empty cart test');
+    }
     const singleCartItemId = singleItemResponse.body.data.items[0].id;
 
     // Verify cart has one item

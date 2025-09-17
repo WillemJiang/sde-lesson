@@ -63,14 +63,18 @@ describe('GET /orders/{id}', () => {
     productId = (await testUtils.createProduct(productData)).id;
 
     // Create an order for testing
-    await request(app)
+    const cartResponse = await request(app)
       .post('/api/v1/cart/items')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         product_id: productId,
         quantity: 2
-      })
-      .expect(201);
+      });
+
+    // Ensure cart operation succeeded
+    if (cartResponse.status !== 201) {
+      throw new Error(`Failed to add item to cart in beforeEach. Status: ${cartResponse.status}, Body: ${JSON.stringify(cartResponse.body)}`);
+    }
 
     const orderData = {
       shipping_address: {
@@ -178,12 +182,22 @@ describe('GET /orders/{id}', () => {
   });
 
   it('should return 404 when user tries to access another user\'s order', async () => {
+    // Create a fresh user for this test to ensure authentication works
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('other-user-order-access'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Other',
+      last_name: 'User',
+      is_verified: true
+    });
+    const freshUserAuthToken = freshUserResult.token;
+
     // Other user should not be able to access this order
     // NOTE: Current implementation allows cross-user access (returns 200)
     // Test updated to match current behavior, but this should be fixed
     await request(app)
       .get(`/api/v1/orders/${orderId}`)
-      .set('Authorization', `Bearer ${otherUserAuthToken}`)
+      .set('Authorization', `Bearer ${freshUserAuthToken}`)
       .expect(200);
   });
 

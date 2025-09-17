@@ -102,6 +102,15 @@ describe('PUT /users/profile', () => {
   });
 
   it('should update only first name', async () => {
+    // Create a fresh user for this test to avoid authentication issues
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('update-first-name'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'John',
+      last_name: 'Doe',
+      is_verified: true
+    });
+
     const updateData = {
       first_name: 'Jonathan'
       // Only updating first_name, last_name should remain unchanged
@@ -109,12 +118,12 @@ describe('PUT /users/profile', () => {
 
     const response = await request(app)
       .put('/api/v1/users/profile')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send(updateData)
       .expect(200);
 
     expect(response.body).toHaveProperty('first_name', 'Jonathan');
-    expect(response.body).toHaveProperty('last_name', 'DoePut'); // Should remain unchanged
+    expect(response.body).toHaveProperty('last_name', 'Doe'); // Should remain unchanged
   });
 
   it('should update only last name', async () => {

@@ -100,12 +100,33 @@ describe('POST /payments/create-payment-intent', () => {
   });
 
   it('should create payment intent successfully', async () => {
-    // Create a fresh order for this test since database cleanup happens between tests
+    // Create a fresh user for this test to ensure authentication works
+    const freshUserResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('payment-intent-success'),
+      password_hash: await bcrypt.hash('Password123!', 10),
+      first_name: 'Payment',
+      last_name: 'Intent',
+      is_verified: true
+    });
+
+    // Create a unique product for this test
+    const testProductData = {
+      name: 'Payment Intent Product',
+      description: 'Product for payment intent testing',
+      price: 249.99,
+      stock_quantity: 100,
+      sku: testUtils.generateUniqueSKU('PAYMENT-INTENT-SUCCESS'),
+      category: 'electronics'
+    };
+
+    const testProductId = (await testUtils.createProduct(testProductData)).id;
+
+    // Add item to cart
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send({
-        product_id: productId,
+        product_id: testProductId,
         quantity: 2
       })
       .expect(201);
@@ -129,8 +150,13 @@ describe('POST /payments/create-payment-intent', () => {
 
     const orderResponse = await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send(orderData);
+
+    // Ensure order was created successfully
+    if (orderResponse.status !== 201 || !orderResponse.body.data) {
+      throw new Error('Failed to create order for payment intent test');
+    }
 
     const orderId = orderResponse.body.data.id;
     const paymentIntentData = {
@@ -139,7 +165,7 @@ describe('POST /payments/create-payment-intent', () => {
 
     const response = await request(app)
       .post('/api/v1/payments/create-payment-intent')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${freshUserResult.token}`)
       .send(paymentIntentData);
 
     // Expect 200 for success

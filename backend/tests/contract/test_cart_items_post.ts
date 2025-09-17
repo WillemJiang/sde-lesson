@@ -24,8 +24,8 @@ describe('POST /cart/items', () => {
   beforeEach(async () => {
     // Create regular user using test utilities
     const hashedPassword = await bcrypt.hash('Password123!', 10);
-    const userResult = await global.testUtils.createTestUserWithToken({
-      email: global.testUtils.generateUniqueEmail('cart-items-post'),
+    const userResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('cart-items-post'),
       password_hash: hashedPassword,
       first_name: 'John',
       last_name: 'Doe',
@@ -34,8 +34,8 @@ describe('POST /cart/items', () => {
     authToken = userResult.token;
 
     // Create admin user using test utilities
-    const adminResult = await global.testUtils.createTestUserWithToken({
-      email: global.testUtils.generateUniqueEmail('admin-cart-items-post'),
+    const adminResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('admin-cart-items-post'),
       password_hash: hashedPassword,
       first_name: 'Admin',
       last_name: 'User',
@@ -50,11 +50,11 @@ describe('POST /cart/items', () => {
       description: 'A test product for cart item operations',
       price: 79.99,
       stock_quantity: 100,
-      sku: global.testUtils.generateUniqueSKU('CART-ITEMS'),
+      sku: testUtils.generateUniqueSKU('CART-ITEMS'),
       category: 'electronics'
     };
 
-    productId = (await global.testUtils.createProduct(productData)).id;
+    productId = (await testUtils.createProduct(productData)).id;
 
     // Create a product with low stock for testing insufficient stock scenarios
     const lowStockProductData = {
@@ -62,11 +62,11 @@ describe('POST /cart/items', () => {
       description: 'Product with limited stock',
       price: 29.99,
       stock_quantity: 5,
-      sku: global.testUtils.generateUniqueSKU('LOW-STOCK'),
+      sku: testUtils.generateUniqueSKU('LOW-STOCK'),
       category: 'books'
     };
 
-    lowStockProductId = (await global.testUtils.createProduct(lowStockProductData)).id;
+    lowStockProductId = (await testUtils.createProduct(lowStockProductData)).id;
   });
 
   it('should add item to cart successfully', async () => {
