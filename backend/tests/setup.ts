@@ -1,14 +1,42 @@
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
 
 // Set environment to reduce Prisma logging in tests
 process.env.LOG_LEVEL = 'warn';
 
 let prisma: PrismaClient;
 
-// Store test users and tokens to prevent deletion during test runs
+// File-based persistence for test user IDs across test files
+const TEST_USERS_FILE = path.join(__dirname, 'test-users.json');
 const testUserIds = new Set<string>();
 const testProductIds = new Set<string>();
+
+// Load protected user IDs from file
+const loadProtectedUsers = () => {
+  try {
+    if (fs.existsSync(TEST_USERS_FILE)) {
+      const data = fs.readFileSync(TEST_USERS_FILE, 'utf8');
+      const userIds = JSON.parse(data);
+      userIds.forEach((id: string) => testUserIds.add(id));
+      console.log(`Loaded ${userIds.length} protected user IDs from file`);
+    }
+  } catch (error) {
+    console.log('No protected users file found, starting fresh');
+  }
+};
+
+// Save protected user IDs to file
+const saveProtectedUsers = () => {
+  try {
+    const userIds = Array.from(testUserIds);
+    fs.writeFileSync(TEST_USERS_FILE, JSON.stringify(userIds));
+    console.log(`Saved ${userIds.length} protected user IDs to file`);
+  } catch (error) {
+    console.log('Failed to save protected users:', error);
+  }
+};
 
 // Track test-specific data to ensure complete isolation
 const testSessionData = new Map<string, {
@@ -31,10 +59,23 @@ beforeAll(async () => {
     log: []
   });
   await prisma.$connect();
+
+  // Load previously protected users
+  loadProtectedUsers();
 });
 
 afterAll(async () => {
   await prisma.$disconnect();
+
+  // Clean up the test users file
+  try {
+    if (fs.existsSync(TEST_USERS_FILE)) {
+      fs.unlinkSync(TEST_USERS_FILE);
+      console.log('Cleaned up protected users file');
+    }
+  } catch (error) {
+    console.log('Failed to clean up protected users file:', error);
+  }
 });
 
 // Track cleanup state to prevent excessive cleaning
@@ -54,9 +95,10 @@ beforeEach(async () => {
     carts: new Set()
   });
 
-  // Much less frequent cleanup to prevent breaking authentication
+  // Very conservative cleanup - only every 100 tests and only very old data
   cleanupCounter++;
-  if (cleanupCounter % CLEANUP_INTERVAL === 0) {
+  if (cleanupCounter % 100 === 0) {
+    console.log(`Cleanup check at test ${cleanupCounter}, testUserIds size: ${(global as any).testUserIds?.size || 0}`);
     await performPartialCleanup();
   }
 });
@@ -161,6 +203,7 @@ declare global {
     generateUniqueSKU: (prefix: string) => string;
     createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
     validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
   };
   var testUserIds: Set<string>;
 }
@@ -185,6 +228,7 @@ global.testUtils = {
 
     // Register this user as a test user to prevent deletion
     testUserIds.add(user.id);
+    saveProtectedUsers(); // Save to file for persistence
     return user;
   },
 
@@ -233,6 +277,7 @@ global.testUtils = {
 
     // Register this user as a test user to prevent deletion
     testUserIds.add(user.id);
+    saveProtectedUsers(); // Save to file for persistence
 
     // Generate JWT token with longer expiration for tests
     const token = jwt.sign(
@@ -250,5 +295,11 @@ global.testUtils = {
     } catch (error) {
       return null;
     }
+  },
+
+  // Helper function to protect a user and save to persistent storage
+  protectUser: (userId: string) => {
+    testUserIds.add(userId);
+    saveProtectedUsers();
   },
 };

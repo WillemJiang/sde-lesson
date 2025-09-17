@@ -45,8 +45,8 @@ describe('User Registration and Email Verification Integration', () => {
     userId = response.body.user.id;
 
     // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if ((global as any).testUserIds) {
-      (global as any).testUserIds.add(userId);
+    if ((global as any).testUtils) {
+      (global as any).testUtils.protectUser(userId);
     }
   });
 
@@ -65,8 +65,8 @@ describe('User Registration and Email Verification Integration', () => {
       .expect(201);
 
     // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUserIds) {
-      (global as any).testUserIds.add(registerResponse.body.user.id);
+    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUtils) {
+      (global as any).testUtils.protectUser(registerResponse.body.user.id);
     }
 
     // Use the JWT token from registration response for verification
@@ -101,8 +101,8 @@ describe('User Registration and Email Verification Integration', () => {
       .expect(201);
 
     // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUserIds) {
-      (global as any).testUserIds.add(registerResponse.body.user.id);
+    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUtils) {
+      (global as any).testUtils.protectUser(registerResponse.body.user.id);
     }
 
     // Then try to register the same user again
@@ -183,8 +183,8 @@ describe('User Registration and Email Verification Integration', () => {
     expect(response.body.user).toHaveProperty('last_name', profileUserData.last_name);
 
     // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if (response.body.user && response.body.user.id && (global as any).testUserIds) {
-      (global as any).testUserIds.add(response.body.user.id);
+    if (response.body.user && response.body.user.id && (global as any).testUtils) {
+      (global as any).testUtils.protectUser(response.body.user.id);
     }
   });
 });

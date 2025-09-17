@@ -42,8 +42,8 @@ describe('User Profile Management Integration', () => {
       authToken = registerResponse.body.token;
 
       // Add this user to the protected testUserIds set to prevent deletion during cleanup
-      if ((global as any).testUserIds) {
-        (global as any).testUserIds.add(userId);
+      if ((global as any).testUtils) {
+        (global as any).testUtils.protectUser(userId);
       }
     } else {
       throw new Error(`User registration failed: ${registerResponse.status} - ${JSON.stringify(registerResponse.body)}`);

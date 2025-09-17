@@ -36,8 +36,8 @@ describe('Authentication Flow Integration', () => {
 
     if (registerResponse.status === 201 && registerResponse.body) {
       // Add this user to the protected testUserIds set to prevent deletion during cleanup
-      if ((global as any).testUserIds) {
-        (global as any).testUserIds.add(registerResponse.body.user.id);
+      if ((global as any).testUtils) {
+        (global as any).testUtils.protectUser(registerResponse.body.user.id);
       }
       return {
         userId: registerResponse.body.user.id,
@@ -189,6 +189,11 @@ describe('Authentication Flow Integration', () => {
     // Create a fresh user for this test
     const testUser = await createTestUser('auth-rate-limit');
 
+    // Debug: Check if user protection is working
+    console.log('Rate limit test - User created with ID:', testUser.userId);
+    console.log('Rate limit test - testUserIds size:', (global as any).testUserIds?.size || 0);
+    console.log('Rate limit test - User protected:', (global as any).testUserIds?.has(testUser.userId));
+
     const invalidLogin = {
       email: testUser.email,
       password: 'WrongPassword123!'
@@ -203,13 +208,19 @@ describe('Authentication Flow Integration', () => {
     }
 
     // Should still allow login with correct credentials
-    await request(app)
+    const response = await request(app)
       .post('/api/v1/auth/login')
       .send({
         email: testUser.email,
         password: 'Password123!'
-      })
-      .expect(200);
+      });
+
+    console.log('Rate limit test - Final login status:', response.status);
+    if (response.status !== 200) {
+      console.log('Rate limit test - Error response:', response.body);
+    }
+
+    await response.expect(200);
   });
 
   it('should validate token expiration', async () => {
