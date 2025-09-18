@@ -150,6 +150,18 @@ describe('DELETE /products/{id}', () => {
   });
 
   it('should not affect other products when deleting one', async () => {
+    // Create a fresh admin token for this test to avoid expiration issues
+    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    const freshAdminResult = await testUtils.createTestUserWithToken({
+      email: testUtils.generateUniqueEmail('fresh-admin-delete-isolation'),
+      password_hash: hashedPassword,
+      first_name: 'FreshAdmin',
+      last_name: 'User',
+      is_verified: true,
+      role: 'ADMIN'
+    });
+    const freshAdminToken = freshAdminResult.token;
+
     // Create fresh products specifically for this test to ensure isolation
     const productToDeleteData = {
       name: 'Product to Delete - Isolation Test',
@@ -162,7 +174,7 @@ describe('DELETE /products/{id}', () => {
 
     const deleteCreateResponse = await request(app)
       .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
+      .set('Authorization', `Bearer ${freshAdminToken}`)
       .send(productToDeleteData)
       .expect(201);
 
@@ -179,7 +191,7 @@ describe('DELETE /products/{id}', () => {
 
     const keepCreateResponse = await request(app)
       .post('/api/v1/products')
-      .set('Authorization', `Bearer ${adminAuthToken}`)
+      .set('Authorization', `Bearer ${freshAdminToken}`)
       .send(productToKeepData)
       .expect(201);
 
@@ -188,7 +200,7 @@ describe('DELETE /products/{id}', () => {
     // Delete one product
     await request(app)
       .delete(`/api/v1/products/${productToDeleteId}`)
-      .set('Authorization', `Bearer ${adminAuthToken}`)
+      .set('Authorization', `Bearer ${freshAdminToken}`)
       .expect(204);
 
     // Verify the product we intended to keep still exists

@@ -223,6 +223,7 @@ global.testUtils = {
         first_name: userData.first_name || 'Test',
         last_name: userData.last_name || 'User',
         is_verified: userData.is_verified || true,
+        role: userData.role || 'USER',
       },
     });
 
@@ -272,6 +273,7 @@ global.testUtils = {
         first_name: userData.first_name,
         last_name: userData.last_name,
         is_verified: userData.is_verified !== undefined ? userData.is_verified : true,
+        role: userData.role || 'USER',
       },
     });
 

@@ -51,7 +51,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
 
   const user = await prisma.user.findUnique({
     where: { id: req.user.userId },
-    select: { email: true }
+    select: { email: true, role: true }
   });
 
   if (!user) {
@@ -61,7 +61,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
 
   // Check if user is admin via email pattern
   const isAdminViaEmail = isAdminEmail(user.email);
-  const isAdminViaRole = false; // Role-based admin not implemented in this schema
+  const isAdminViaRole = user.role === 'ADMIN';
 
   if (!isAdminViaEmail && !isAdminViaRole) {
     res.status(403).json({ error: 'Admin access required' });

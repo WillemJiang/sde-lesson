@@ -220,7 +220,7 @@ describe('Authentication Flow Integration', () => {
       console.log('Rate limit test - Error response:', response.body);
     }
 
-    await response.expect(200);
+    expect(response.status).toBe(200);
   });
 
   it('should validate token expiration', async () => {

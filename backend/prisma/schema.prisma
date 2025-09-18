@@ -18,12 +18,13 @@ model User {
   last_name       String
   is_verified     Boolean   @default(false)
   verification_token String?
+  role            String    @default("USER")
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
 
   shopping_cart   ShoppingCart?
   orders          Order[]
-  
+
   @@map("users")
 }
 
