@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 import bcrypt from 'bcryptjs';
 
-// Declare test utilities globally
+// Test utilities are already declared globally in setup.ts
 declare global {
   var testUtils: {
     createUser: (userData: any) => Promise<any>;
@@ -12,6 +12,7 @@ declare global {
     generateUniqueSKU: (prefix: string) => string;
     createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
     validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
   };
 }
 
@@ -34,6 +35,9 @@ describe('PUT /cart/items/{id}', () => {
     });
     authToken = userResult.token;
 
+    // Protect this user from cleanup to prevent authentication issues
+    global.testUtils.protectUser(userResult.user.id);
+
     // Create admin user using test utilities
     const adminResult = await global.testUtils.createTestUserWithToken({
       email: global.testUtils.generateUniqueEmail('admin-cart-update'),
@@ -44,6 +48,9 @@ describe('PUT /cart/items/{id}', () => {
       role: 'ADMIN'
     });
     adminAuthToken = adminResult.token;
+
+    // Protect this admin user from cleanup to prevent authentication issues
+    global.testUtils.protectUser(adminResult.user.id);
 
     // Create test product through API (admin required)
     const productData = {
@@ -79,6 +86,11 @@ describe('PUT /cart/items/{id}', () => {
       .post('/api/v1/cart/items')
       .set('Authorization', `Bearer ${authToken}`)
       .send(addItemData);
+
+    // Validate the cart item creation succeeded
+    if (addItemResponse.status !== 201 || !addItemResponse.body.data || !addItemResponse.body.data.items || addItemResponse.body.data.items.length === 0) {
+      throw new Error(`Failed to create cart item for testing. Status: ${addItemResponse.status}, Body: ${JSON.stringify(addItemResponse.body)}`);
+    }
 
     cartItemId = addItemResponse.body.data.items[0].id;
   });

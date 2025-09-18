@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 import bcrypt from 'bcryptjs';
 
-// Declare test utilities globally
+// Test utilities are already declared globally in setup.ts
 declare global {
   var testUtils: {
     createUser: (userData: any) => Promise<any>;
@@ -12,6 +12,7 @@ declare global {
     generateUniqueSKU: (prefix: string) => string;
     createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
     validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
   };
 }
 
@@ -70,7 +71,7 @@ describe('DELETE /cart/items/{id}', () => {
 
     // Ensure the response has the expected structure before accessing items
     if (firstItemResponse.status !== 201 || !firstItemResponse.body.data || !firstItemResponse.body.data.items || firstItemResponse.body.data.items.length === 0) {
-      throw new Error('Failed to add first item to cart in beforeEach');
+      throw new Error(`Failed to add first item to cart in beforeEach. Status: ${firstItemResponse.status}, Body: ${JSON.stringify(firstItemResponse.body)}`);
     }
     cartItemIdToDelete = firstItemResponse.body.data.items[0].id;
 
@@ -86,7 +87,7 @@ describe('DELETE /cart/items/{id}', () => {
 
     // Ensure the response has the expected structure before accessing items
     if (secondItemResponse.status !== 201 || !secondItemResponse.body.data || !secondItemResponse.body.data.items || secondItemResponse.body.data.items.length === 0) {
-      throw new Error('Failed to add second item to cart in beforeEach');
+      throw new Error(`Failed to add second item to cart in beforeEach. Status: ${secondItemResponse.status}, Body: ${JSON.stringify(secondItemResponse.body)}`);
     }
     cartItemIdToKeep = secondItemResponse.body.data.items[0].id;
   });

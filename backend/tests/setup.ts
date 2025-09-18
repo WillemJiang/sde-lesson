@@ -80,7 +80,7 @@ afterAll(async () => {
 
 // Track cleanup state to prevent excessive cleaning
 let cleanupCounter = 0;
-const CLEANUP_INTERVAL = 50; // Clean up every 50 tests (much less frequent)
+const CLEANUP_INTERVAL = 200; // Clean up every 200 tests (much less frequent)
 
 beforeEach(async () => {
   // Create unique test session for each test
@@ -95,53 +95,76 @@ beforeEach(async () => {
     carts: new Set()
   });
 
-  // Very conservative cleanup - only every 100 tests and only very old data
+  // NO CLEANUP DURING TEST EXECUTION - Only clean up after all tests complete
+  // This prevents test interference and foreign key constraint violations
   cleanupCounter++;
-  if (cleanupCounter % 100 === 0) {
-    console.log(`Cleanup check at test ${cleanupCounter}, testUserIds size: ${(global as any).testUserIds?.size || 0}`);
-    await performPartialCleanup();
+  if (cleanupCounter % 500 === 0) {
+    console.log(`Test progress: ${cleanupCounter} tests completed, testUserIds size: ${testUserIds.size}`);
   }
 });
 
-// Partial cleanup that preserves recent test data
+// Partial cleanup that preserves recent test data AND protected test users
 const performPartialCleanup = async () => {
   try {
-    // Only clean up very old data (older than 1 minute) to prevent test interference
-    const cutoffTime = new Date(Date.now() - 1 * 60 * 1000); // 1 minute ago
+    // Only clean up very old data (older than 2 minutes) to prevent test interference
+    const cutoffTime = new Date(Date.now() - 2 * 60 * 1000); // 2 minutes ago
 
+    // Get all protected user IDs to ensure we don't break their relationships
+    const protectedUserIds = Array.from(testUserIds);
+
+    // Clean up order items for old data, excluding orders from protected users
     await prisma.orderItem.deleteMany({
       where: {
         created_at: {
           lt: cutoffTime
+        },
+        order: {
+          user_id: {
+            notIn: protectedUserIds
+          }
         }
       }
     });
 
+    // Clean up orders for old data, excluding protected users
     await prisma.order.deleteMany({
       where: {
         created_at: {
           lt: cutoffTime
+        },
+        user_id: {
+          notIn: protectedUserIds
         }
       }
     });
 
+    // Clean up cart items for old data, excluding protected users' carts
     await prisma.cartItem.deleteMany({
       where: {
         created_at: {
           lt: cutoffTime
+        },
+        cart: {
+          user_id: {
+            notIn: protectedUserIds
+          }
         }
       }
     });
 
+    // Clean up shopping carts for old data, excluding protected users
     await prisma.shoppingCart.deleteMany({
       where: {
         created_at: {
           lt: cutoffTime
+        },
+        user_id: {
+          notIn: protectedUserIds
         }
       }
     });
 
-    console.log(`Performed partial cleanup (test ${cleanupCounter}) - removed data older than 1 minute`);
+    console.log(`Performed partial cleanup (test ${cleanupCounter}) - removed data older than 2 minutes, protected ${protectedUserIds.length} users`);
   } catch (error) {
     console.log('Partial cleanup failed:', error);
   }

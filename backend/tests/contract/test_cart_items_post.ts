@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 import bcrypt from 'bcryptjs';
 
-// Declare test utilities globally
+// Test utilities are already declared globally in setup.ts
 declare global {
   var testUtils: {
     createUser: (userData: any) => Promise<any>;
@@ -12,6 +12,7 @@ declare global {
     generateUniqueSKU: (prefix: string) => string;
     createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
     validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
   };
 }
 

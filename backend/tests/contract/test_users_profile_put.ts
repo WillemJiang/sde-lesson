@@ -359,12 +359,12 @@ describe('PUT /users/profile', () => {
       is_verified: true
     });
 
-    // Test invalid JSON by sending malformed JSON that won't break the parser
+    // Test invalid JSON by sending malformed JSON
     await request(app)
       .put('/api/v1/users/profile')
       .set('Authorization', `Bearer ${freshUserResult.token}`)
       .set('Content-Type', 'application/json')
-      .send('{ invalid json missing quote }')
+      .send('{ malformed json missing closing brace }')  // This will be caught by JSON parsing
       .expect(400);
   });
 
