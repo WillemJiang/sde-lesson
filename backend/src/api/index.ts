@@ -12,6 +12,7 @@ import orderRoutes from './order.routes';
 import paymentRoutes from './payment.routes';
 import userRoutes from './user.routes';
 import { authenticateToken } from '../middleware/auth';
+import { rateLimiter, authRateLimiter } from '../middleware/security';
 
 // Create the main API router
 const apiRouter = Router();
@@ -27,6 +28,9 @@ apiRouter.use(morgan('dev', {
 }));
 apiRouter.use(express.json({ limit: '10mb' }));
 apiRouter.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Apply rate limiting
+apiRouter.use(rateLimiter);
 
 // Custom middleware for API versioning
 apiRouter.use((req, res, next) => {
@@ -111,7 +115,7 @@ apiRouter.get('/info', (req, res) => {
 });
 
 // Mount route handlers
-apiRouter.use('/auth', authRoutes);
+apiRouter.use('/auth', authRateLimiter, authRoutes);
 apiRouter.use('/products', productRoutes);
 apiRouter.use('/cart', cartRoutes);
 apiRouter.use('/orders', orderRoutes);

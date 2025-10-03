@@ -91,7 +91,7 @@ export const rateLimiter = rateLimit({
 // Stricter rate limiting for authentication endpoints
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 auth requests per windowMs
+  max: process.env.NODE_ENV === 'test' ? 1000 : 5, // Very high limit for testing
   message: {
     error: 'Too many authentication attempts',
     details: 'Please try again later'
@@ -99,6 +99,10 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req: Request) => {
+    // Skip rate limiting entirely in test mode
+    if (process.env.NODE_ENV === 'test') {
+      return true;
+    }
     // Only apply to auth endpoints
     return !req.path.startsWith('/api/v1/auth');
   }
