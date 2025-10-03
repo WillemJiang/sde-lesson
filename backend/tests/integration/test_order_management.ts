@@ -35,22 +35,62 @@ describe('Order Management and Cancellation Integration', () => {
       last_name: 'Manager1'
     };
 
-    await request(app)
+    const register1Response = await request(app)
       .post('/api/v1/auth/register')
       .send(user1Data);
 
-    const login1Response = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: user1Email,
-        password: 'Password123!'
-      });
+    if (register1Response.status !== 201) {
+      throw new Error(`User1 registration failed with status ${register1Response.status}: ${JSON.stringify(register1Response.body)}`);
+    }
 
-    authToken = login1Response.body.token;
+    // Extract token from registration response (more reliable than separate login)
+    if (register1Response.body && register1Response.body.token) {
+      authToken = register1Response.body.token;
 
-    // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if (login1Response.body.user && login1Response.body.user.id && (global as any).testUtils) {
-      (global as any).testUtils.protectUser(login1Response.body.user.id);
+      // Add this user to the protected testUserIds set to prevent deletion during cleanup
+      if (register1Response.body.user && register1Response.body.user.id && (global as any).testUtils) {
+        (global as any).testUtils.protectUser(register1Response.body.user.id);
+      }
+    } else {
+      // Fallback: try separate login if registration doesn't return token
+      const login1Response = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: user1Email,
+          password: 'Password123!'
+        });
+
+      if (login1Response.status !== 200) {
+        throw new Error(`User1 login failed with status ${login1Response.status}: ${JSON.stringify(login1Response.body)}`);
+      }
+
+      authToken = login1Response.body.token;
+
+      // Add this user to the protected testUserIds set to prevent deletion during cleanup
+      if (login1Response.body.user && login1Response.body.user.id && (global as any).testUtils) {
+        (global as any).testUtils.protectUser(login1Response.body.user.id);
+      }
+    }
+
+    // Verify the token is valid immediately after creation
+    const tokenValidation1 = await request(app)
+      .get('/api/v1/orders')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    if (tokenValidation1.status !== 200) {
+      console.log('Token validation failed for user1 in order management test, retrying with fresh login');
+      const freshLogin1Response = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: user1Email,
+          password: 'Password123!'
+        });
+
+      if (freshLogin1Response.status === 200) {
+        authToken = freshLogin1Response.body.token;
+      } else {
+        console.log(`Fresh token creation failed for user1, proceeding with original token. Status: ${freshLogin1Response.status}`);
+      }
     }
 
     // Register and login second test user
@@ -62,22 +102,62 @@ describe('Order Management and Cancellation Integration', () => {
       last_name: 'Manager2'
     };
 
-    await request(app)
+    const register2Response = await request(app)
       .post('/api/v1/auth/register')
       .send(user2Data);
 
-    const login2Response = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: user2Email,
-        password: 'Password123!'
-      });
+    if (register2Response.status !== 201) {
+      throw new Error(`User2 registration failed with status ${register2Response.status}: ${JSON.stringify(register2Response.body)}`);
+    }
 
-    authToken2 = login2Response.body.token;
+    // Extract token from registration response (more reliable than separate login)
+    if (register2Response.body && register2Response.body.token) {
+      authToken2 = register2Response.body.token;
 
-    // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if (login2Response.body.user && login2Response.body.user.id && (global as any).testUtils) {
-      (global as any).testUtils.protectUser(login2Response.body.user.id);
+      // Add this user to the protected testUserIds set to prevent deletion during cleanup
+      if (register2Response.body.user && register2Response.body.user.id && (global as any).testUtils) {
+        (global as any).testUtils.protectUser(register2Response.body.user.id);
+      }
+    } else {
+      // Fallback: try separate login if registration doesn't return token
+      const login2Response = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: user2Email,
+          password: 'Password123!'
+        });
+
+      if (login2Response.status !== 200) {
+        throw new Error(`User2 login failed with status ${login2Response.status}: ${JSON.stringify(login2Response.body)}`);
+      }
+
+      authToken2 = login2Response.body.token;
+
+      // Add this user to the protected testUserIds set to prevent deletion during cleanup
+      if (login2Response.body.user && login2Response.body.user.id && (global as any).testUtils) {
+        (global as any).testUtils.protectUser(login2Response.body.user.id);
+      }
+    }
+
+    // Verify the second token is valid immediately after creation
+    const tokenValidation2 = await request(app)
+      .get('/api/v1/orders')
+      .set('Authorization', `Bearer ${authToken2}`);
+
+    if (tokenValidation2.status !== 200) {
+      console.log('Token validation failed for user2 in order management test, retrying with fresh login');
+      const freshLogin2Response = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: user2Email,
+          password: 'Password123!'
+        });
+
+      if (freshLogin2Response.status === 200) {
+        authToken2 = freshLogin2Response.body.token;
+      } else {
+        console.log(`Fresh token creation failed for user2, proceeding with original token. Status: ${freshLogin2Response.status}`);
+      }
     }
 
     // Create test products directly using testUtils

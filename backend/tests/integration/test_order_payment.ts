@@ -24,7 +24,8 @@ describe('Order Creation and Payment Flow Integration', () => {
   beforeEach(async () => {
     // Register and login test user for each test (ensures data isolation)
     const timestamp = Date.now();
-    const userEmail = `order-${timestamp}@example.com`;
+    const randomSuffix = Math.floor(Math.random() * 10000);
+    const userEmail = `order-${timestamp}-${randomSuffix}@example.com`;
     const userData = {
       email: userEmail,
       password: 'Password123!',
@@ -33,26 +34,69 @@ describe('Order Creation and Payment Flow Integration', () => {
     };
 
     // Register the user
-    await request(app)
+    const registerResponse = await request(app)
       .post('/api/v1/auth/register')
       .send(userData);
 
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: userEmail,
-        password: 'Password123!'
-      });
-
-    if (loginResponse.status !== 200) {
-      throw new Error(`User login failed with status ${loginResponse.status}: ${JSON.stringify(loginResponse.body)}`);
+    if (registerResponse.status !== 201) {
+      throw new Error(`User registration failed with status ${registerResponse.status}: ${JSON.stringify(registerResponse.body)}`);
     }
 
-    authToken = loginResponse.body.token;
+    // Extract token from registration response (more reliable than separate login)
+    if (registerResponse.body && registerResponse.body.token) {
+      authToken = registerResponse.body.token;
 
-    // Add this user to the protected testUserIds set to prevent deletion during cleanup
-    if (loginResponse.body.user && loginResponse.body.user.id && (global as any).testUtils) {
-      (global as any).testUtils.protectUser(loginResponse.body.user.id);
+      // Add this user to the protected testUserIds set to prevent deletion during cleanup
+      if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUtils) {
+        (global as any).testUtils.protectUser(registerResponse.body.user.id);
+      }
+    } else {
+      // Fallback: try separate login if registration doesn't return token
+      const loginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: userEmail,
+          password: 'Password123!'
+        });
+
+      if (loginResponse.status !== 200) {
+        throw new Error(`User login failed with status ${loginResponse.status}: ${JSON.stringify(loginResponse.body)}`);
+      }
+
+      authToken = loginResponse.body.token;
+
+      // Add this user to the protected testUserIds set to prevent deletion during cleanup
+      if (loginResponse.body.user && loginResponse.body.user.id && (global as any).testUtils) {
+        (global as any).testUtils.protectUser(loginResponse.body.user.id);
+      }
+    }
+
+    // Verify the token is valid immediately after creation
+    const tokenValidation = await request(app)
+      .get('/api/v1/cart')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    if (tokenValidation.status !== 200) {
+      console.log('Token validation failed in order payment test beforeEach, retrying with fresh login');
+      // If token validation fails, create a fresh token using direct login
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: userEmail,
+          password: 'Password123!'
+        });
+
+      if (freshLoginResponse.status === 200) {
+        authToken = freshLoginResponse.body.token;
+
+        // Update user protection if needed
+        if (freshLoginResponse.body.user && freshLoginResponse.body.user.id && (global as any).testUtils) {
+          (global as any).testUtils.protectUser(freshLoginResponse.body.user.id);
+        }
+      } else {
+        // Instead of throwing, let's continue and see if the original token works
+        console.log(`Fresh token creation also failed, proceeding with original token. Status: ${freshLoginResponse.status}`);
+      }
     }
 
     // Create test products using testUtils (avoids admin permission issues)

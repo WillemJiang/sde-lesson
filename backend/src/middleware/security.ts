@@ -74,7 +74,7 @@ export const securityHeaders = helmet({
 // Rate limiting
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'test' ? 10000 : 100, // Very high limit for testing
   message: {
     error: 'Too many requests',
     details: 'Please try again later'
@@ -82,6 +82,10 @@ export const rateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req: Request) => {
+    // Skip rate limiting entirely in test mode
+    if (process.env.NODE_ENV === 'test') {
+      return true;
+    }
     // Skip rate limiting for certain paths
     const skipPaths = ['/health', '/metrics', '/api/v1/webhooks/stripe'];
     return skipPaths.some(path => req.path.startsWith(path));

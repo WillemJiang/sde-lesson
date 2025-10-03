@@ -24,7 +24,8 @@ describe('User Profile Management Integration', () => {
   beforeEach(async () => {
     // Generate unique email for each test run
     const timestamp = Date.now();
-    uniqueEmail = `profile-test-${timestamp}@example.com`;
+    const randomSuffix = Math.floor(Math.random() * 10000);
+    uniqueEmail = `profile-test-${timestamp}-${randomSuffix}@example.com`;
 
     // Register a test user
     const userData = {
@@ -48,6 +49,28 @@ describe('User Profile Management Integration', () => {
       }
     } else {
       throw new Error(`User registration failed: ${registerResponse.status} - ${JSON.stringify(registerResponse.body)}`);
+    }
+
+    // Verify the token is valid immediately after creation
+    const tokenValidation = await request(app)
+      .get('/api/v1/users/profile')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    if (tokenValidation.status !== 200) {
+      console.log('Token validation failed in beforeEach, creating fresh token');
+      // If token validation fails, create a fresh token using direct login
+      const loginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: uniqueEmail,
+          password: 'Password123!'
+        });
+
+      if (loginResponse.status === 200) {
+        authToken = loginResponse.body.token;
+      } else {
+        throw new Error(`Fresh token creation failed with status ${loginResponse.status}: ${JSON.stringify(loginResponse.body)}`);
+      }
     }
   });
 

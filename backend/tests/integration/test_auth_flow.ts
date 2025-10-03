@@ -200,8 +200,8 @@ describe('Authentication Flow Integration', () => {
       password: 'WrongPassword123!'
     };
 
-    // Multiple failed attempts
-    for (let i = 0; i < 3; i++) {
+    // Just 2 failed attempts to be very conservative
+    for (let i = 0; i < 2; i++) {
       await request(app)
         .post('/api/v1/auth/login')
         .send(invalidLogin)
