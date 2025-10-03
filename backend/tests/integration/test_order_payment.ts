@@ -217,18 +217,17 @@ describe('Order Creation and Payment Flow Integration', () => {
 
     let activeToken = authToken;
     if (tokenValidation.status !== 200) {
-      console.log('Token invalid in payment intent test, getting fresh token');
-      // Get fresh token by re-logging in with the credentials from beforeEach
+      console.log('Token invalid in payment intent test, creating fresh user...');
+      // User might have been deleted, create a fresh user
       const timestamp = Date.now();
       const randomSuffix = Math.floor(Math.random() * 10000);
-      const freshUserEmail = `order-${timestamp}-${randomSuffix}@example.com`;
+      const freshUserEmail = `payment-intent-${timestamp}-${randomSuffix}@example.com`;
 
-      // Register fresh user
       const freshUserData = {
         email: freshUserEmail,
         password: 'Password123!',
-        first_name: 'Order',
-        last_name: 'Payment'
+        first_name: 'Payment',
+        last_name: 'Intent'
       };
 
       await request(app)
@@ -245,7 +244,7 @@ describe('Order Creation and Payment Flow Integration', () => {
       if (freshLoginResponse.status === 200) {
         activeToken = freshLoginResponse.body.token;
       } else {
-        throw new Error(`Failed to get fresh token for payment test: ${freshLoginResponse.status}`);
+        throw new Error(`Failed to create fresh user for payment intent test: ${freshLoginResponse.status}`);
       }
     }
 
@@ -668,6 +667,44 @@ describe('Order Creation and Payment Flow Integration', () => {
   });
 
   it('should handle order creation with insufficient stock', async () => {
+    // Validate token before use
+    const tokenValidation = await request(app)
+      .get('/api/v1/cart')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    let activeToken = authToken;
+    if (tokenValidation.status !== 200) {
+      console.log('Token invalid in insufficient stock test, creating fresh user...');
+      // User might have been deleted, create a fresh user
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const freshUserEmail = `insufficient-stock-${timestamp}-${randomSuffix}@example.com`;
+
+      const freshUserData = {
+        email: freshUserEmail,
+        password: 'Password123!',
+        first_name: 'Insufficient',
+        last_name: 'Stock'
+      };
+
+      await request(app)
+        .post('/api/v1/auth/register')
+        .send(freshUserData);
+
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: freshUserEmail,
+          password: 'Password123!'
+        });
+
+      if (freshLoginResponse.status === 200) {
+        activeToken = freshLoginResponse.body.token;
+      } else {
+        throw new Error(`Failed to create fresh user for insufficient stock test: ${freshLoginResponse.status}`);
+      }
+    }
+
     // Create a product with limited stock using testUtils
     const limitedProduct = await global.testUtils.createProduct({
       name: 'Limited Stock Item',
@@ -688,7 +725,7 @@ describe('Order Creation and Payment Flow Integration', () => {
 
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(cartItem)
       .expect(400);
   });

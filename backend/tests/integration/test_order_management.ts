@@ -367,29 +367,115 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should list all user orders', async () => {
-    // First create some orders for the current user
-    const order1 = await createOrder();
-    const order2 = await createOrder();
+    // Create completely isolated test environment to avoid race conditions
+    const timestamp = Date.now();
+    const randomSuffix = Math.floor(Math.random() * 100000);
+    const isolatedUserEmail = `list-orders-${timestamp}-${randomSuffix}@example.com`;
 
+    // Create fresh user for this test
+    const userData = {
+      email: isolatedUserEmail,
+      password: userPassword,
+      first_name: 'List',
+      last_name: 'Orders'
+    };
+
+    const registerResponse = await request(app)
+      .post('/api/v1/auth/register')
+      .send(userData);
+
+    expect(registerResponse.status).toBe(201);
+
+    const loginResponse = await request(app)
+      .post('/api/v1/auth/login')
+      .send({
+        email: isolatedUserEmail,
+        password: userPassword
+      });
+
+    expect(loginResponse.status).toBe(200);
+    const testToken = loginResponse.body.token;
+
+    // Create fresh products for this test to avoid conflicts
+    const testProduct1 = await global.testUtils.createProduct({
+      name: 'List Test Product 1',
+      description: 'Product for listing orders test',
+      price: 25.99,
+      stock_quantity: 10,
+      category: 'Test',
+      sku: global.testUtils.generateUniqueSKU('LTP1')
+    });
+
+    const testProduct2 = await global.testUtils.createProduct({
+      name: 'List Test Product 2',
+      description: 'Product for listing orders test',
+      price: 35.99,
+      stock_quantity: 15,
+      category: 'Test',
+      sku: global.testUtils.generateUniqueSKU('LTP2')
+    });
+
+    // Create orders using fresh isolated data
+    const createIsolatedOrder = async (productId: string, quantity: number) => {
+      // Add item to cart
+      await request(app)
+        .post('/api/v1/cart/items')
+        .set('Authorization', `Bearer ${testToken}`)
+        .send({
+          product_id: productId,
+          quantity: quantity
+        })
+        .expect(201);
+
+      // Create order
+      const orderData = {
+        shipping_address: {
+          street: '123 List Test St',
+          city: 'List City',
+          state: 'List State',
+          zip_code: '12345',
+          country: 'USA'
+        },
+        billing_address: {
+          street: '123 List Test St',
+          city: 'List City',
+          state: 'List State',
+          zip_code: '12345',
+          country: 'USA'
+        }
+      };
+
+      const orderResponse = await request(app)
+        .post('/api/v1/orders')
+        .set('Authorization', `Bearer ${testToken}`)
+        .send(orderData)
+        .expect(201);
+
+      return orderResponse.body.data.id;
+    };
+
+    // Create test orders
+    const order1 = await createIsolatedOrder(testProduct1.id, 2);
+    const order2 = await createIsolatedOrder(testProduct2.id, 1);
+
+    // List orders
     const response = await request(app)
       .get('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('orders');
     expect(Array.isArray(response.body.orders)).toBe(true);
     expect(response.body.orders.length).toBeGreaterThanOrEqual(2);
 
-    // Verify orders belong to the user
+    // Verify orders belong to the user and have correct structure
     response.body.orders.forEach(order => {
       expect(order).toHaveProperty('id');
       expect(order).toHaveProperty('status');
       expect(order).toHaveProperty('total_amount');
+      expect(order).toHaveProperty('items');
+      expect(order).toHaveProperty('created_at');
     });
-
-    // Store order IDs for subsequent tests
-    if (!orderId1) orderId1 = order1;
-    if (!orderId2) orderId2 = order2;
   });
 
   it('should filter orders by status', async () => {
@@ -435,51 +521,86 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should cancel a pending order', async () => {
-    // Validate token before use
-    const tokenValidation = await request(app)
-      .get('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`);
+    // Create completely isolated test environment to avoid race conditions
+    const timestamp = Date.now();
+    const randomSuffix = Math.floor(Math.random() * 100000);
+    const isolatedUserEmail = `cancel-order-${timestamp}-${randomSuffix}@example.com`;
 
-    let activeToken = authToken;
-    if (tokenValidation.status !== 200) {
-      console.log('Token invalid in cancel order test, creating fresh user...');
-      // User might have been deleted, create a fresh user
-      const timestamp = Date.now();
-      const randomSuffix = Math.floor(Math.random() * 10000);
-      const freshUserEmail = `cancel-order-${timestamp}-${randomSuffix}@example.com`;
+    // Create fresh user for this test
+    const userData = {
+      email: isolatedUserEmail,
+      password: userPassword,
+      first_name: 'Cancel',
+      last_name: 'Order'
+    };
 
-      const freshUserData = {
-        email: freshUserEmail,
-        password: userPassword,
-        first_name: 'Cancel',
-        last_name: 'Order'
-      };
+    const registerResponse = await request(app)
+      .post('/api/v1/auth/register')
+      .send(userData);
 
-      await request(app)
-        .post('/api/v1/auth/register')
-        .send(freshUserData);
+    expect(registerResponse.status).toBe(201);
 
-      const freshLoginResponse = await request(app)
-        .post('/api/v1/auth/login')
-        .send({
-          email: freshUserEmail,
-          password: userPassword
-        });
+    const loginResponse = await request(app)
+      .post('/api/v1/auth/login')
+      .send({
+        email: isolatedUserEmail,
+        password: userPassword
+      });
 
-      if (freshLoginResponse.status === 200) {
-        activeToken = freshLoginResponse.body.token;
-      } else {
-        throw new Error(`Failed to create fresh user for cancel order test: ${freshLoginResponse.status}`);
+    expect(loginResponse.status).toBe(200);
+    const testToken = loginResponse.body.token;
+
+    // Create fresh product for this test
+    const testProduct = await global.testUtils.createProduct({
+      name: 'Cancel Test Product',
+      description: 'Product for cancel order test',
+      price: 99.99,
+      stock_quantity: 5,
+      category: 'Test',
+      sku: global.testUtils.generateUniqueSKU('CTP')
+    });
+
+    // Create order using isolated data
+    // Add item to cart
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${testToken}`)
+      .send({
+        product_id: testProduct.id,
+        quantity: 1
+      })
+      .expect(201);
+
+    // Create order
+    const orderData = {
+      shipping_address: {
+        street: '123 Cancel Test St',
+        city: 'Cancel City',
+        state: 'Cancel State',
+        zip_code: '12345',
+        country: 'USA'
+      },
+      billing_address: {
+        street: '123 Cancel Test St',
+        city: 'Cancel City',
+        state: 'Cancel State',
+        zip_code: '12345',
+        country: 'USA'
       }
-    }
+    };
 
-    // Create a new order for this test with validated token
-    const testOrderId = await createOrder(activeToken);
+    const orderResponse = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${testToken}`)
+      .send(orderData)
+      .expect(201);
+
+    const testOrderId = orderResponse.body.data.id;
 
     // First verify order exists and is pending
     const initialResponse = await request(app)
       .get(`/api/v1/orders/${testOrderId}`)
-      .set('Authorization', `Bearer ${activeToken}`)
+      .set('Authorization', `Bearer ${testToken}`)
       .expect(200);
 
     expect(initialResponse.body).toHaveProperty('data');
@@ -487,30 +608,102 @@ describe('Order Management and Cancellation Integration', () => {
 
     const response = await request(app)
       .post(`/api/v1/orders/${testOrderId}/cancel`)
-      .set('Authorization', `Bearer ${activeToken}`)
+      .set('Authorization', `Bearer ${testToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('data');
     expect(response.body.data).toHaveProperty('status', 'CANCELLED');
     expect(response.body).toHaveProperty('message');
     expect(response.body.message).toContain('Order cancelled successfully');
-
-    // Store for use in subsequent tests
-    if (!orderId1) orderId1 = testOrderId;
   });
 
   it('should verify order status after cancellation', async () => {
-    // Create and cancel an order for this test
-    const testOrderId = await createOrder();
+    // Create completely isolated test environment to avoid race conditions
+    const timestamp = Date.now();
+    const randomSuffix = Math.floor(Math.random() * 100000);
+    const isolatedUserEmail = `verify-cancel-${timestamp}-${randomSuffix}@example.com`;
 
+    // Create fresh user for this test
+    const userData = {
+      email: isolatedUserEmail,
+      password: userPassword,
+      first_name: 'Verify',
+      last_name: 'Cancel'
+    };
+
+    const registerResponse = await request(app)
+      .post('/api/v1/auth/register')
+      .send(userData);
+
+    expect(registerResponse.status).toBe(201);
+
+    const loginResponse = await request(app)
+      .post('/api/v1/auth/login')
+      .send({
+        email: isolatedUserEmail,
+        password: userPassword
+      });
+
+    expect(loginResponse.status).toBe(200);
+    const testToken = loginResponse.body.token;
+
+    // Create fresh product for this test
+    const testProduct = await global.testUtils.createProduct({
+      name: 'Verify Cancel Product',
+      description: 'Product for verify cancel test',
+      price: 149.99,
+      stock_quantity: 8,
+      category: 'Test',
+      sku: global.testUtils.generateUniqueSKU('VCP')
+    });
+
+    // Create and cancel an order using isolated data
+    // Add item to cart
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${testToken}`)
+      .send({
+        product_id: testProduct.id,
+        quantity: 2
+      })
+      .expect(201);
+
+    // Create order
+    const orderData = {
+      shipping_address: {
+        street: '789 Verify St',
+        city: 'Verify City',
+        state: 'Verify State',
+        zip_code: '67890',
+        country: 'USA'
+      },
+      billing_address: {
+        street: '789 Verify St',
+        city: 'Verify City',
+        state: 'Verify State',
+        zip_code: '67890',
+        country: 'USA'
+      }
+    };
+
+    const orderResponse = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${testToken}`)
+      .send(orderData)
+      .expect(201);
+
+    const testOrderId = orderResponse.body.data.id;
+
+    // Cancel the order
     await request(app)
       .post(`/api/v1/orders/${testOrderId}/cancel`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testToken}`)
       .expect(200);
 
+    // Verify order status after cancellation
     const response = await request(app)
       .get(`/api/v1/orders/${testOrderId}`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${testToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('data');

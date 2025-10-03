@@ -135,19 +135,34 @@ describe('User Profile Management Integration', () => {
 
     let activeToken = authToken;
     if (tokenValidation.status !== 200) {
-      console.log('Token invalid in partial profile update test, getting fresh token');
-      // Get fresh token by re-logging in
+      console.log('Token invalid in partial profile update test, creating fresh user...');
+      // User might have been deleted, create a fresh user
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const freshUserEmail = `profile-partial-${timestamp}-${randomSuffix}@example.com`;
+
+      const freshUserData = {
+        email: freshUserEmail,
+        password: 'Password123!',
+        first_name: 'Profile',
+        last_name: 'Partial'
+      };
+
+      await request(app)
+        .post('/api/v1/auth/register')
+        .send(freshUserData);
+
       const freshLoginResponse = await request(app)
         .post('/api/v1/auth/login')
         .send({
-          email: uniqueEmail,
+          email: freshUserEmail,
           password: 'Password123!'
         });
 
       if (freshLoginResponse.status === 200) {
         activeToken = freshLoginResponse.body.token;
       } else {
-        throw new Error(`Failed to get fresh token for profile test: ${freshLoginResponse.status}`);
+        throw new Error(`Failed to create fresh user for partial profile test: ${freshLoginResponse.status}`);
       }
     }
 
