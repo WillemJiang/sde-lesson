@@ -2,13 +2,18 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 
-// Declare global test utilities
+// Access global test utilities
 declare global {
   var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
     generateUniqueEmail: (prefix: string) => string;
     generateUniqueSKU: (prefix: string) => string;
-    createProduct: (productData: any) => Promise<any>;
+    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+    validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
   };
+  var testUserIds: Set<string>;
 }
 
 describe('Order Management and Cancellation Integration', () => {

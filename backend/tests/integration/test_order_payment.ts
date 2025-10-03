@@ -2,10 +2,18 @@ import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import app from '../../src/index';
 
-// Access global test variables
+// Access global test utilities
 declare global {
+  var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
+    generateUniqueEmail: (prefix: string) => string;
+    generateUniqueSKU: (prefix: string) => string;
+    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+    validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
+  };
   var testUserIds: Set<string>;
-  var testUtils: any;
 }
 
 describe('Order Creation and Payment Flow Integration', () => {

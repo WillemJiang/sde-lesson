@@ -37,11 +37,14 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
 };
 
 export const validatePagination = (req: Request, res: Response, next: NextFunction): void => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const pageRaw = req.query.page as string;
+  const limitRaw = req.query.limit as string;
+
+  const page = pageRaw !== undefined ? parseInt(pageRaw, 10) : 1;
+  const limit = limitRaw !== undefined ? parseInt(limitRaw, 10) : 10;
   const offset = (page - 1) * limit;
 
-  if (page < 1 || limit < 1 || limit > 100) {
+  if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1 || limit > 100) {
     res.status(400).json({
       error: 'Invalid pagination parameters',
       details: 'Page must be >= 1, limit must be between 1 and 100'

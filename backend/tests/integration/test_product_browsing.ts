@@ -5,10 +5,15 @@ import app from '../../src/index';
 // Access global test utilities
 declare global {
   var testUtils: {
+    createUser: (userData: any) => Promise<any>;
+    createProduct: (productData: any) => Promise<any>;
     generateUniqueEmail: (prefix: string) => string;
     generateUniqueSKU: (prefix: string) => string;
-    createProduct: (productData: any) => Promise<any>;
+    createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
+    validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
   };
+  var testUserIds: Set<string>;
 }
 
 describe('Product Browsing and Search Integration', () => {

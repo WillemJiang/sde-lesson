@@ -143,9 +143,9 @@
 ## Phase 3.5: Polish
 
 ### Testing [P] - Can run in parallel
-- [ ] T080 [P] Unit tests for utilities in backend/tests/unit/test_utils.js
-- [ ] T081 [P] Unit tests for middleware in backend/tests/unit/test_middleware.js
-- [ ] T082 [P] Unit tests for services in backend/tests/unit/test_services.js
+- [ ] T080 [P] Unit tests for utilities in backend/tests/unit/test_utils.ts
+- [ ] T081 [P] Unit tests for middleware in backend/tests/unit/test_middleware.ts
+- [ ] T082 [P] Unit tests for services in backend/tests/unit/test_services.ts
 - [ ] T083 [P] Component tests in frontend/tests/component/
 - [ ] T084 [P] Performance tests (<500ms API response) in backend/tests/performance/
 - [ ] T085 [P] End-to-end tests with Playwright in frontend/tests/e2e/

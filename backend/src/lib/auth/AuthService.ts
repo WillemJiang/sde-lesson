@@ -21,24 +21,26 @@ export class AuthService {
   private readonly jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
   private readonly jwtExpiresIn = process.env.JWT_EXPIRES_IN || '7d';
   private readonly saltRounds = 12;
+  private readonly bcrypt = bcrypt;
+  private readonly jwt = jwt;
 
   async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, this.saltRounds);
+    return this.bcrypt.hash(password, this.saltRounds);
   }
 
   async verifyPassword(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
+    return this.bcrypt.compare(password, hash);
   }
 
   generateToken(userId: string): string {
-    return jwt.sign({ userId }, this.jwtSecret, {
+    return this.jwt.sign({ userId }, this.jwtSecret, {
       expiresIn: this.jwtExpiresIn,
     } as any);
   }
 
   verifyToken(token: string): { userId: string } | null {
     try {
-      return jwt.verify(token, this.jwtSecret) as { userId: string };
+      return this.jwt.verify(token, this.jwtSecret) as { userId: string };
     } catch {
       return null;
     }

@@ -11,6 +11,7 @@ declare global {
     generateUniqueSKU: (prefix: string) => string;
     createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
     validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
   };
   var testUserIds: Set<string>;
 }

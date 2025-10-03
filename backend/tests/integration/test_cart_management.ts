@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import app from '../../src/index';
 import bcrypt from 'bcryptjs';
 
-// Declare test utilities globally
+// Access global test utilities
 declare global {
   var testUtils: {
     createUser: (userData: any) => Promise<any>;
@@ -12,7 +12,9 @@ declare global {
     generateUniqueSKU: (prefix: string) => string;
     createTestUserWithToken: (userData: any) => Promise<{ user: any; token: string }>;
     validateToken: (token: string) => any;
+    protectUser: (userId: string) => void;
   };
+  var testUserIds: Set<string>;
 }
 
 describe('Shopping Cart Management Integration', () => {
