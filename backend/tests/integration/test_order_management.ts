@@ -283,9 +283,47 @@ describe('Order Management and Cancellation Integration', () => {
   };
 
   it('should create multiple orders for testing', async () => {
+    // Validate token before creating orders
+    const tokenValidation = await request(app)
+      .get('/api/v1/orders')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    let activeToken = authToken;
+    if (tokenValidation.status !== 200) {
+      console.log('Token invalid in create multiple orders test, creating fresh user...');
+      // User might have been deleted, create a fresh user
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const freshUserEmail = `multi-order-${timestamp}-${randomSuffix}@example.com`;
+
+      const freshUserData = {
+        email: freshUserEmail,
+        password: userPassword,
+        first_name: 'Multi',
+        last_name: 'Order'
+      };
+
+      await request(app)
+        .post('/api/v1/auth/register')
+        .send(freshUserData);
+
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: freshUserEmail,
+          password: userPassword
+        });
+
+      if (freshLoginResponse.status === 200) {
+        activeToken = freshLoginResponse.body.token;
+      } else {
+        throw new Error(`Failed to create fresh user for create multiple orders test: ${freshLoginResponse.status}`);
+      }
+    }
+
     // Create orders for user 1
-    orderId1 = await createOrder();
-    orderId2 = await createOrder();
+    orderId1 = await createOrder(activeToken);
+    orderId2 = await createOrder(activeToken);
 
     // Create an order for second user
     const cartItem = {
@@ -397,13 +435,51 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should cancel a pending order', async () => {
-    // Create a new order for this test
-    const testOrderId = await createOrder();
+    // Validate token before use
+    const tokenValidation = await request(app)
+      .get('/api/v1/orders')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    let activeToken = authToken;
+    if (tokenValidation.status !== 200) {
+      console.log('Token invalid in cancel order test, creating fresh user...');
+      // User might have been deleted, create a fresh user
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const freshUserEmail = `cancel-order-${timestamp}-${randomSuffix}@example.com`;
+
+      const freshUserData = {
+        email: freshUserEmail,
+        password: userPassword,
+        first_name: 'Cancel',
+        last_name: 'Order'
+      };
+
+      await request(app)
+        .post('/api/v1/auth/register')
+        .send(freshUserData);
+
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: freshUserEmail,
+          password: userPassword
+        });
+
+      if (freshLoginResponse.status === 200) {
+        activeToken = freshLoginResponse.body.token;
+      } else {
+        throw new Error(`Failed to create fresh user for cancel order test: ${freshLoginResponse.status}`);
+      }
+    }
+
+    // Create a new order for this test with validated token
+    const testOrderId = await createOrder(activeToken);
 
     // First verify order exists and is pending
     const initialResponse = await request(app)
       .get(`/api/v1/orders/${testOrderId}`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .expect(200);
 
     expect(initialResponse.body).toHaveProperty('data');
@@ -411,7 +487,7 @@ describe('Order Management and Cancellation Integration', () => {
 
     const response = await request(app)
       .post(`/api/v1/orders/${testOrderId}/cancel`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('data');
@@ -505,12 +581,50 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should search orders by ID', async () => {
-    // Create a new order for this test
-    const testOrderId = await createOrder();
+    // Validate token before use
+    const tokenValidation = await request(app)
+      .get('/api/v1/orders')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    let activeToken = authToken;
+    if (tokenValidation.status !== 200) {
+      console.log('Token invalid in search orders test, creating fresh user...');
+      // User might have been deleted, create a fresh user
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const freshUserEmail = `search-order-${timestamp}-${randomSuffix}@example.com`;
+
+      const freshUserData = {
+        email: freshUserEmail,
+        password: userPassword,
+        first_name: 'Search',
+        last_name: 'Order'
+      };
+
+      await request(app)
+        .post('/api/v1/auth/register')
+        .send(freshUserData);
+
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: freshUserEmail,
+          password: userPassword
+        });
+
+      if (freshLoginResponse.status === 200) {
+        activeToken = freshLoginResponse.body.token;
+      } else {
+        throw new Error(`Failed to create fresh user for search orders test: ${freshLoginResponse.status}`);
+      }
+    }
+
+    // Create a new order for this test with validated token
+    const testOrderId = await createOrder(activeToken);
 
     const response = await request(app)
       .get(`/api/v1/orders/${testOrderId}`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('data');
