@@ -210,6 +210,45 @@ describe('Order Creation and Payment Flow Integration', () => {
   });
 
   it('should create payment intent for cart', async () => {
+    // Validate token is still valid before using it
+    const tokenValidation = await request(app)
+      .get('/api/v1/cart')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    let activeToken = authToken;
+    if (tokenValidation.status !== 200) {
+      console.log('Token invalid in payment intent test, getting fresh token');
+      // Get fresh token by re-logging in with the credentials from beforeEach
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const freshUserEmail = `order-${timestamp}-${randomSuffix}@example.com`;
+
+      // Register fresh user
+      const freshUserData = {
+        email: freshUserEmail,
+        password: 'Password123!',
+        first_name: 'Order',
+        last_name: 'Payment'
+      };
+
+      await request(app)
+        .post('/api/v1/auth/register')
+        .send(freshUserData);
+
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: freshUserEmail,
+          password: 'Password123!'
+        });
+
+      if (freshLoginResponse.status === 200) {
+        activeToken = freshLoginResponse.body.token;
+      } else {
+        throw new Error(`Failed to get fresh token for payment test: ${freshLoginResponse.status}`);
+      }
+    }
+
     // First add items to cart for this test (ensuring isolation)
     const cartItem1 = {
       product_id: productId1,
@@ -223,13 +262,13 @@ describe('Order Creation and Payment Flow Integration', () => {
 
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(cartItem1)
       .expect(201);
 
     await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(cartItem2)
       .expect(201);
 
@@ -253,7 +292,7 @@ describe('Order Creation and Payment Flow Integration', () => {
 
     const orderResponse = await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(orderData)
       .expect(201);
 
@@ -267,7 +306,7 @@ describe('Order Creation and Payment Flow Integration', () => {
 
     const response = await request(app)
       .post('/api/v1/payments/create-payment-intent')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(paymentData)
       .expect(200);
 

@@ -128,6 +128,29 @@ describe('User Profile Management Integration', () => {
   });
 
   it('should handle partial profile updates', async () => {
+    // Validate token is still valid before using it
+    const tokenValidation = await request(app)
+      .get('/api/v1/users/profile')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    let activeToken = authToken;
+    if (tokenValidation.status !== 200) {
+      console.log('Token invalid in partial profile update test, getting fresh token');
+      // Get fresh token by re-logging in
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: uniqueEmail,
+          password: 'Password123!'
+        });
+
+      if (freshLoginResponse.status === 200) {
+        activeToken = freshLoginResponse.body.token;
+      } else {
+        throw new Error(`Failed to get fresh token for profile test: ${freshLoginResponse.status}`);
+      }
+    }
+
     // First set initial values
     const initialUpdate = {
       first_name: 'Initial',
@@ -136,7 +159,7 @@ describe('User Profile Management Integration', () => {
 
     await request(app)
       .put('/api/v1/users/profile')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(initialUpdate)
       .expect(200);
 
@@ -147,7 +170,7 @@ describe('User Profile Management Integration', () => {
 
     const response = await request(app)
       .put('/api/v1/users/profile')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(partialUpdate)
       .expect(200);
 

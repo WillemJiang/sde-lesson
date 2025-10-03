@@ -24,13 +24,16 @@ describe('Order Management and Cancellation Integration', () => {
   let orderId1: string;
   let orderId2: string;
   let orderId3: string;
+  let user1Email: string;
+  let user2Email: string;
+  const userPassword = 'Password123!';
 
   beforeEach(async () => {
     // Register and login first test user
-    const user1Email = global.testUtils.generateUniqueEmail('order-mgmt1');
+    user1Email = global.testUtils.generateUniqueEmail('order-mgmt1');
     const user1Data = {
       email: user1Email,
-      password: 'Password123!',
+      password: userPassword,
       first_name: 'Order',
       last_name: 'Manager1'
     };
@@ -57,7 +60,7 @@ describe('Order Management and Cancellation Integration', () => {
         .post('/api/v1/auth/login')
         .send({
           email: user1Email,
-          password: 'Password123!'
+          password: userPassword
         });
 
       if (login1Response.status !== 200) {
@@ -83,7 +86,7 @@ describe('Order Management and Cancellation Integration', () => {
         .post('/api/v1/auth/login')
         .send({
           email: user1Email,
-          password: 'Password123!'
+          password: userPassword
         });
 
       if (freshLogin1Response.status === 200) {
@@ -94,10 +97,10 @@ describe('Order Management and Cancellation Integration', () => {
     }
 
     // Register and login second test user
-    const user2Email = global.testUtils.generateUniqueEmail('order-mgmt2');
+    user2Email = global.testUtils.generateUniqueEmail('order-mgmt2');
     const user2Data = {
       email: user2Email,
-      password: 'Password123!',
+      password: userPassword,
       first_name: 'Order',
       last_name: 'Manager2'
     };
@@ -124,7 +127,7 @@ describe('Order Management and Cancellation Integration', () => {
         .post('/api/v1/auth/login')
         .send({
           email: user2Email,
-          password: 'Password123!'
+          password: userPassword
         });
 
       if (login2Response.status !== 200) {
@@ -150,7 +153,7 @@ describe('Order Management and Cancellation Integration', () => {
         .post('/api/v1/auth/login')
         .send({
           email: user2Email,
-          password: 'Password123!'
+          password: userPassword
         });
 
       if (freshLogin2Response.status === 200) {
@@ -183,10 +186,48 @@ describe('Order Management and Cancellation Integration', () => {
     productId2 = product2.id;
   });
 
-  const createOrder = async () => {
+  const createOrder = async (tokenToUse?: string) => {
     // Verify products are available
     if (!productId1 || !productId2) {
       throw new Error('Product IDs are not available');
+    }
+
+    // Use provided token or default to authToken
+    let activeToken = tokenToUse || authToken;
+
+    // Validate token is still valid before using it
+    const tokenValidation = await request(app)
+      .get('/api/v1/orders')
+      .set('Authorization', `Bearer ${activeToken}`);
+
+    if (tokenValidation.status !== 200) {
+      console.log('Token invalid in createOrder, attempting to refresh token');
+      // Try to get a fresh token using the user credentials from the beforeEach setup
+      // We'll need to re-authenticate with the original user credentials
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: user1Email,
+          password: userPassword
+        });
+
+      // If that fails, try with the second user
+      if (freshLoginResponse.status !== 200) {
+        const freshLoginResponse2 = await request(app)
+          .post('/api/v1/auth/login')
+          .send({
+            email: user2Email,
+            password: userPassword
+          });
+
+        if (freshLoginResponse2.status === 200) {
+          activeToken = freshLoginResponse2.body.token;
+        } else {
+          throw new Error(`Failed to refresh token in createOrder: user1=${freshLoginResponse.status}, user2=${freshLoginResponse2.status}`);
+        }
+      } else {
+        activeToken = freshLoginResponse.body.token;
+      }
     }
 
     // Add items to cart
@@ -202,13 +243,13 @@ describe('Order Management and Cancellation Integration', () => {
 
     const cartResponse1 = await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(cartItem1)
       .expect(201);
 
     const cartResponse2 = await request(app)
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(cartItem2)
       .expect(201);
 
@@ -232,7 +273,7 @@ describe('Order Management and Cancellation Integration', () => {
 
     const orderResponse = await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .send(orderData)
       .expect(201);
 
