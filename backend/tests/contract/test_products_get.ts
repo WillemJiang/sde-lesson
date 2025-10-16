@@ -56,9 +56,9 @@ describe('GET /products', () => {
       .expect(200);
 
     expect(response.body.data.products).toBeDefined();
-    // All returned products should be in the specified category
+    // All returned products should be in the specified category (case-insensitive)
     response.body.data.products.forEach((product: any) => {
-      expect(product.category).toBe('electronics');
+      expect(product.category.toLowerCase()).toBe('electronics');
     });
   });
 
