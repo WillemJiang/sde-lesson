@@ -34,6 +34,7 @@ const config: Config = {
   resetMocks: true,
   restoreMocks: true,
   silent: false,
+  maxWorkers: 1,
   testEnvironmentOptions: {
     verbose: true
   },

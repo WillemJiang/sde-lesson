@@ -33,9 +33,6 @@ router.get('/', [
     };
 
     if (req.query.status) options.filters = { status: req.query.status as OrderStatus };
-    if (req.query.user_id) {
-      options.filters = { ...options.filters, user_id: req.query.user_id as string };
-    }
     if (req.query.start_date) {
       options.filters = { ...options.filters, date_from: new Date(req.query.start_date as string) };
     }
@@ -43,7 +40,21 @@ router.get('/', [
       options.filters = { ...options.filters, date_to: new Date(req.query.end_date as string) };
     }
 
-    const result = await orderService.getOrders(options);
+    // Get the authenticated user's ID
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    // Allow admin to filter by user_id, otherwise use authenticated user's ID
+    if (req.query.user_id) {
+      // TODO: Add admin check here if needed
+      options.filters = { ...options.filters, user_id: req.query.user_id as string };
+    }
+
+    // Always get orders for the authenticated user (unless admin specified a different user)
+    const result = await orderService.getOrdersByUser(userId, options);
 
     res.json({
       message: 'Orders retrieved successfully',
