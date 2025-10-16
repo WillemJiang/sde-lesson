@@ -297,6 +297,27 @@ afterAll(async () => {
     // Only clear product IDs and session data - keep test users protected across all test files
     testProductIds.clear();
     testSessionData.clear();
+
+    // Clean up test resource files after all tests complete
+    // These files were used to protect resources within this test run
+    // They should be deleted so each test run starts fresh
+    try {
+      if (fs.existsSync(TEST_USERS_FILE)) {
+        fs.unlinkSync(TEST_USERS_FILE);
+        console.log('Cleaned up test-users.json');
+      }
+    } catch (error) {
+      console.log('Failed to clean up test-users.json:', error);
+    }
+
+    try {
+      if (fs.existsSync(TEST_PRODUCTS_FILE)) {
+        fs.unlinkSync(TEST_PRODUCTS_FILE);
+        console.log('Cleaned up test-products.json');
+      }
+    } catch (error) {
+      console.log('Failed to clean up test-products.json:', error);
+    }
   } catch (error) {
     console.log('Final cleanup failed:', error);
   }
