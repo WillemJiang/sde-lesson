@@ -5,6 +5,10 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testRegex: ['(/tests/.*|(\\.|/)(test|spec))\\.(ts|js)$'],
+  testPathIgnorePatterns: [
+    '/tests/setup\\.ts$',
+    '/tests/jest-setup\\.js$',
+  ],
   transform: {
     '^.+\\.(ts|js)$': ['ts-jest', {
       diagnostics: {
