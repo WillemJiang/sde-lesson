@@ -27,7 +27,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+    const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
+    const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
 
     // Verify user exists in database
     const user = await prisma.user.findUnique({
@@ -68,7 +69,8 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+      const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
+      const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },

@@ -18,11 +18,17 @@ export interface RegisterInput extends CreateUserInput {
 }
 
 export class AuthService {
-  private readonly jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
-  private readonly jwtExpiresIn = process.env.JWT_EXPIRES_IN || '7d';
   private readonly saltRounds = 12;
   private readonly bcrypt = bcrypt;
   private readonly jwt = jwt;
+
+  private get jwtSecret(): string {
+    return process.env.JWT_SECRET || 'fallback-secret';
+  }
+
+  private get jwtExpiresIn(): string {
+    return process.env.JWT_EXPIRES_IN || '7d';
+  }
 
   async hashPassword(password: string): Promise<string> {
     return this.bcrypt.hash(password, this.saltRounds);
