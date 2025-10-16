@@ -131,7 +131,7 @@ describe('Product Browsing and Search Integration', () => {
     expect(response.body).toHaveProperty('data');
     expect(response.body.data).toHaveProperty('products');
     expect(response.body.data.products.length).toBeGreaterThan(0);
-    response.body.data.products.forEach(product => {
+    response.body.data.products.forEach((product: any) => {
       expect(product.category).toBe('Electronics');
     });
   });
@@ -143,7 +143,7 @@ describe('Product Browsing and Search Integration', () => {
 
     expect(response.body).toHaveProperty('data');
     expect(response.body.data).toHaveProperty('products');
-    response.body.data.products.forEach(product => {
+    response.body.data.products.forEach((product: any) => {
       expect(product.price).toBeGreaterThanOrEqual(50);
       expect(product.price).toBeLessThanOrEqual(100);
     });
@@ -162,7 +162,7 @@ describe('Product Browsing and Search Integration', () => {
     expect(products.length).toBeGreaterThan(0);
 
     // Verify all products are in the Electronics category (case-insensitive check)
-    products.forEach(product => {
+    products.forEach((product: any) => {
       expect(product.category.toLowerCase()).toBe('electronics');
     });
 
@@ -185,7 +185,7 @@ describe('Product Browsing and Search Integration', () => {
     expect(products.length).toBeGreaterThan(0);
 
     // Verify all products are in the Electronics category (case-insensitive check)
-    products.forEach(product => {
+    products.forEach((product: any) => {
       expect(product.category.toLowerCase()).toBe('electronics');
     });
 
@@ -219,7 +219,7 @@ describe('Product Browsing and Search Integration', () => {
 
     expect(response.body).toHaveProperty('data');
     expect(response.body.data).toHaveProperty('products');
-    response.body.data.products.forEach(product => {
+    response.body.data.products.forEach((product: any) => {
       expect(product.is_active).toBe(true);
     });
   });
@@ -231,7 +231,7 @@ describe('Product Browsing and Search Integration', () => {
 
     expect(response.body).toHaveProperty('data');
     expect(response.body.data).toHaveProperty('products');
-    response.body.data.products.forEach(product => {
+    response.body.data.products.forEach((product: any) => {
       expect(product.name.toLowerCase()).toContain('wire');
       expect(product.category).toBe('Electronics');
       expect(product.price).toBeGreaterThanOrEqual(50);

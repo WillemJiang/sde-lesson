@@ -204,7 +204,7 @@ describe('Order Creation and Payment Flow Integration', () => {
     const cartData = cartResponse.body.data;
     let calculatedTotal = 0;
     if (cartData.items && Array.isArray(cartData.items)) {
-      calculatedTotal = cartData.items.reduce((sum, item) => sum + (item.price_at_time * item.quantity), 0);
+      calculatedTotal = cartData.items.reduce((sum: number, item: any) => sum + (item.price_at_time * item.quantity), 0);
     }
     expect(calculatedTotal).toBe(299.97); // 199.99 + (49.99 * 2)
   });

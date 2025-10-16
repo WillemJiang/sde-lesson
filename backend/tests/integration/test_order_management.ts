@@ -469,7 +469,7 @@ describe('Order Management and Cancellation Integration', () => {
     expect(response.body.orders.length).toBeGreaterThanOrEqual(2);
 
     // Verify orders belong to the user and have correct structure
-    response.body.orders.forEach(order => {
+    response.body.orders.forEach((order: any) => {
       expect(order).toHaveProperty('id');
       expect(order).toHaveProperty('status');
       expect(order).toHaveProperty('total_amount');
@@ -486,7 +486,7 @@ describe('Order Management and Cancellation Integration', () => {
 
     expect(response.body).toHaveProperty('orders');
     if (response.body.orders.length > 0) {
-      response.body.orders.forEach(order => {
+      response.body.orders.forEach((order: any) => {
         expect(order.status).toBe('PENDING');
       });
     }
@@ -873,7 +873,7 @@ describe('Order Management and Cancellation Integration', () => {
     expect(response.body.orders.length).toBeGreaterThan(0);
 
     // Verify all orders have required fields
-    response.body.orders.forEach(order => {
+    response.body.orders.forEach((order: any) => {
       expect(order).toHaveProperty('id');
       expect(order).toHaveProperty('status');
       expect(order).toHaveProperty('total_amount');
