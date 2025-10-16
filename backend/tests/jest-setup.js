@@ -1,3 +1,7 @@
+// Set test environment at the very beginning before any imports
+process.env.NODE_ENV = 'test';
+process.env.LOG_LEVEL = 'warn';
+
 // Jest setup file to control logging output
 const originalConsoleLog = console.log;
 const originalConsoleWarn = console.warn;

@@ -37,6 +37,24 @@ const config: Config = {
   testEnvironmentOptions: {
     verbose: true
   },
+  projects: [
+    {
+      displayName: 'unit',
+      testMatch: ['<rootDir>/tests/unit/**/*.ts'],
+      preset: 'ts-jest',
+      testEnvironment: 'node',
+      setupFiles: ['<rootDir>/tests/jest-setup.js'],
+      setupFilesAfterEnv: [],
+    },
+    {
+      displayName: 'integration-contract',
+      testMatch: ['<rootDir>/tests/contract/**/*.ts', '<rootDir>/tests/integration/**/*.ts'],
+      preset: 'ts-jest',
+      testEnvironment: 'node',
+      setupFiles: ['<rootDir>/tests/jest-setup.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+    },
+  ],
 };
 
 export default config;
