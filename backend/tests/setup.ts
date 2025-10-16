@@ -8,8 +8,9 @@ process.env.LOG_LEVEL = 'warn';
 
 let prisma: PrismaClient;
 
-// File-based persistence for test user IDs across test files
+// File-based persistence for test user and product IDs across test files
 const TEST_USERS_FILE = path.join(__dirname, 'test-users.json');
+const TEST_PRODUCTS_FILE = path.join(__dirname, 'test-products.json');
 const testUserIds = new Set<string>();
 const testProductIds = new Set<string>();
 
@@ -35,6 +36,31 @@ const saveProtectedUsers = () => {
     console.log(`Saved ${userIds.length} protected user IDs to file`);
   } catch (error) {
     console.log('Failed to save protected users:', error);
+  }
+};
+
+// Load protected product IDs from file
+const loadProtectedProducts = () => {
+  try {
+    if (fs.existsSync(TEST_PRODUCTS_FILE)) {
+      const data = fs.readFileSync(TEST_PRODUCTS_FILE, 'utf8');
+      const productIds = JSON.parse(data);
+      productIds.forEach((id: string) => testProductIds.add(id));
+      console.log(`Loaded ${productIds.length} protected product IDs from file`);
+    }
+  } catch (error) {
+    console.log('No protected products file found, starting fresh');
+  }
+};
+
+// Save protected product IDs to file
+const saveProtectedProducts = () => {
+  try {
+    const productIds = Array.from(testProductIds);
+    fs.writeFileSync(TEST_PRODUCTS_FILE, JSON.stringify(productIds));
+    console.log(`Saved ${productIds.length} protected product IDs to file`);
+  } catch (error) {
+    console.log('Failed to save protected products:', error);
   }
 };
 
@@ -66,8 +92,9 @@ beforeAll(async () => {
     console.log('Initial connection failed, attempting to sync schema...');
   }
 
-  // Load previously protected users
+  // Load previously protected users and products
   loadProtectedUsers();
+  loadProtectedProducts();
 });
 
 afterAll(async () => {
@@ -83,17 +110,23 @@ let cleanupCounter = 0;
 const CLEANUP_INTERVAL = 200; // Clean up every 200 tests (much less frequent)
 
 beforeEach(async () => {
-  // Reload protected users from file at the start of each test
-  // This ensures we have all protected users from all test suites
+  // Reload protected users and products from file at the start of each test
+  // This ensures we have all protected users and products from all test suites
   try {
     if (fs.existsSync(TEST_USERS_FILE)) {
       const data = fs.readFileSync(TEST_USERS_FILE, 'utf8');
       const userIds = JSON.parse(data);
-      const oldSize = testUserIds.size;
       userIds.forEach((id: string) => testUserIds.add(id));
-      if (testUserIds.size > oldSize) {
-        // Reloaded additional users from file
-      }
+    }
+  } catch (error) {
+    // Ignore errors reading file
+  }
+
+  try {
+    if (fs.existsSync(TEST_PRODUCTS_FILE)) {
+      const data = fs.readFileSync(TEST_PRODUCTS_FILE, 'utf8');
+      const productIds = JSON.parse(data);
+      productIds.forEach((id: string) => testProductIds.add(id));
     }
   } catch (error) {
     // Ignore errors reading file
@@ -189,9 +222,11 @@ const performPartialCleanup = async () => {
 afterAll(async () => {
   // Final comprehensive cleanup after all tests complete
   try {
-    // IMPORTANT: Reload protected users from file before deletion
-    // This ensures we don't delete users from previous test suites
+    // IMPORTANT: Reload protected users and products from file before deletion
+    // This ensures we don't delete users/products from previous test suites
     const reloadedProtectedUsers = new Set(testUserIds);
+    const reloadedProtectedProducts = new Set(testProductIds);
+    
     try {
       if (fs.existsSync(TEST_USERS_FILE)) {
         const data = fs.readFileSync(TEST_USERS_FILE, 'utf8');
@@ -200,6 +235,16 @@ afterAll(async () => {
       }
     } catch (error) {
       // Ignore errors reading file, just use current testUserIds
+    }
+
+    try {
+      if (fs.existsSync(TEST_PRODUCTS_FILE)) {
+        const data = fs.readFileSync(TEST_PRODUCTS_FILE, 'utf8');
+        const productIds = JSON.parse(data);
+        productIds.forEach((id: string) => reloadedProtectedProducts.add(id));
+      }
+    } catch (error) {
+      // Ignore errors reading file, just use current testProductIds
     }
 
     // Use Prisma deleteMany for final cleanup - respects foreign key constraints
@@ -219,8 +264,19 @@ afterAll(async () => {
       await prisma.cartItem.deleteMany();
       await prisma.shoppingCart.deleteMany();
 
-      // Delete products and users
-      await prisma.product.deleteMany();
+      // Only delete products that are not in the protected reloadedProtectedProducts set
+      // Keep test products around for other test suites to use
+      if (reloadedProtectedProducts.size > 0) {
+        await prisma.product.deleteMany({
+          where: {
+            id: {
+              notIn: Array.from(reloadedProtectedProducts)
+            }
+          }
+        });
+      } else {
+        await prisma.product.deleteMany();
+      }
 
       // Only delete users that are not in the protected testUserIds set (including reloaded ones)
       if (reloadedProtectedUsers.size > 0) {
@@ -300,6 +356,7 @@ global.testUtils = {
 
     // Register this product as a test product to prevent deletion
     testProductIds.add(product.id);
+    saveProtectedProducts(); // Save to file for persistence
     return product;
   },
 
