@@ -73,15 +73,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.$disconnect();
 
-  // Clean up the test users file
-  try {
-    if (fs.existsSync(TEST_USERS_FILE)) {
-      fs.unlinkSync(TEST_USERS_FILE);
-      console.log('Cleaned up protected users file');
-    }
-  } catch (error) {
-    console.log('Failed to clean up protected users file:', error);
-  }
+  // DO NOT delete the protected users file - it's needed across test suites
+  // The file persists so that protected users from earlier test suites 
+  // remain protected when later test suites run
 });
 
 // Track cleanup state to prevent excessive cleaning
