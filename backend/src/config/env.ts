@@ -4,6 +4,15 @@ import { z } from 'zod';
 // Load environment variables
 dotenv.config();
 
+// Provide test defaults early to ensure they're available at module load time
+if (process.env.NODE_ENV === 'test') {
+  process.env.DATABASE_URL = process.env.DATABASE_URL || 'file::memory:?cache=shared';
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-for-testing-only-minimum-32-chars';
+  process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_dummy_key_for_testing_only';
+  process.env.STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_dummy_key_for_testing_only';
+  process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_test_dummy_key_for_testing_only';
+}
+
 // Environment configuration schema
 const envSchema = z.object({
   // Node environment
