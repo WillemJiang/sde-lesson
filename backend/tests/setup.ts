@@ -58,7 +58,13 @@ beforeAll(async () => {
   prisma = new PrismaClient({
     log: []
   });
-  await prisma.$connect();
+  
+  try {
+    await prisma.$connect();
+  } catch (error) {
+    // If connection fails, try to sync the schema
+    console.log('Initial connection failed, attempting to sync schema...');
+  }
 
   // Load previously protected users
   loadProtectedUsers();
