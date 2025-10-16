@@ -173,6 +173,19 @@ const performPartialCleanup = async () => {
 afterAll(async () => {
   // Final comprehensive cleanup after all tests complete
   try {
+    // IMPORTANT: Reload protected users from file before deletion
+    // This ensures we don't delete users from previous test suites
+    const reloadedProtectedUsers = new Set(testUserIds);
+    try {
+      if (fs.existsSync(TEST_USERS_FILE)) {
+        const data = fs.readFileSync(TEST_USERS_FILE, 'utf8');
+        const userIds = JSON.parse(data);
+        userIds.forEach((id: string) => reloadedProtectedUsers.add(id));
+      }
+    } catch (error) {
+      // Ignore errors reading file, just use current testUserIds
+    }
+
     // Use Prisma deleteMany for final cleanup - respects foreign key constraints
     try {
       // Delete payments first (depends on orders)
@@ -193,12 +206,12 @@ afterAll(async () => {
       // Delete products and users
       await prisma.product.deleteMany();
 
-      // Only delete users that are not in the protected testUserIds set
-      if (testUserIds.size > 0) {
+      // Only delete users that are not in the protected testUserIds set (including reloaded ones)
+      if (reloadedProtectedUsers.size > 0) {
         await prisma.user.deleteMany({
           where: {
             id: {
-              notIn: Array.from(testUserIds)
+              notIn: Array.from(reloadedProtectedUsers)
             }
           }
         });
