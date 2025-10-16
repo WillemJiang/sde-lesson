@@ -493,9 +493,31 @@ describe('Order Management and Cancellation Integration', () => {
   });
 
   it('should sort orders by date', async () => {
+    // Refresh token if needed to handle potential expiration
+    let activeToken = authToken;
+    const testRequest = await request(app)
+      .get('/api/v1/orders?sort_by=created_at&sort_order=desc')
+      .set('Authorization', `Bearer ${activeToken}`);
+
+    if (testRequest.status === 401) {
+      // Token expired, try fresh login
+      const freshLoginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: user1Email,
+          password: userPassword
+        });
+
+      if (freshLoginResponse.status === 200) {
+        activeToken = freshLoginResponse.body.token;
+      } else {
+        throw new Error(`Token refresh failed: ${freshLoginResponse.status}`);
+      }
+    }
+
     const response = await request(app)
       .get('/api/v1/orders?sort_by=created_at&sort_order=desc')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${activeToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('orders');
@@ -539,6 +561,11 @@ describe('Order Management and Cancellation Integration', () => {
       .send(userData);
 
     expect(registerResponse.status).toBe(201);
+
+    // Protect this user to prevent deletion during cleanup
+    if (registerResponse.body.user && registerResponse.body.user.id && (global as any).testUtils) {
+      (global as any).testUtils.protectUser(registerResponse.body.user.id);
+    }
 
     const loginResponse = await request(app)
       .post('/api/v1/auth/login')
