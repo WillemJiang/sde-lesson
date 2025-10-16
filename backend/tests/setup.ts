@@ -83,6 +83,22 @@ let cleanupCounter = 0;
 const CLEANUP_INTERVAL = 200; // Clean up every 200 tests (much less frequent)
 
 beforeEach(async () => {
+  // Reload protected users from file at the start of each test
+  // This ensures we have all protected users from all test suites
+  try {
+    if (fs.existsSync(TEST_USERS_FILE)) {
+      const data = fs.readFileSync(TEST_USERS_FILE, 'utf8');
+      const userIds = JSON.parse(data);
+      const oldSize = testUserIds.size;
+      userIds.forEach((id: string) => testUserIds.add(id));
+      if (testUserIds.size > oldSize) {
+        // Reloaded additional users from file
+      }
+    }
+  } catch (error) {
+    // Ignore errors reading file
+  }
+
   // Create unique test session for each test
   testSessionCounter++;
   const currentTestId = `test-${testSessionCounter}-${Date.now()}`;
